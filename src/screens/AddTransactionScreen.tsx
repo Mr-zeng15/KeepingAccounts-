@@ -77,9 +77,10 @@ export default function AddTransactionScreen() {
       if (dismissTimerRef.current) { clearTimeout(dismissTimerRef.current); dismissTimerRef.current = null; }
       setKeyboardHeight(0);
       // 延迟重置 noteFocused，避免与 onFocus 冲突导致第一次点击无法弹出键盘
+      // 使用更长的延迟，确保标签选择完成
       setTimeout(() => {
         setNoteFocused(false);
-      }, 100);
+      }, 300);
     });
     return () => {
       showSub.remove();
@@ -567,14 +568,14 @@ export default function AddTransactionScreen() {
                 onPress={() => {
                   // 直接设置标签内容
                   setNote(fn);
-                  // 使用ref直接更新TextInput的值
-                  if (noteInputRef.current) {
-                    noteInputRef.current.setNativeProps({ text: fn });
-                  }
-                  // 延迟关闭键盘，确保状态更新完成
+                  // 确保备注输入框保持焦点状态
+                  setNoteFocused(true);
+                  // 延迟聚焦输入框，确保状态更新完成
                   setTimeout(() => {
-                    Keyboard.dismiss();
-                  }, 200);
+                    if (noteInputRef.current) {
+                      noteInputRef.current.focus();
+                    }
+                  }, 100);
                 }}
               >
                 <Text style={[styles.recommendText, note === fn && styles.recommendTextActive]}>{fn}</Text>

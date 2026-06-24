@@ -115,7 +115,7 @@ export default function HomeScreen() {
     for (const t of txs) { (map.get(t.date) || map.set(t.date, []).get(t.date)!).push(t); }
 
     setSections(
-      Array.from(map.keys()).sort().map((date) => {
+      Array.from(map.keys()).sort().reverse().map((date) => {
         const items = map.get(date)!;
         return {
           date,
