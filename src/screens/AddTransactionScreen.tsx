@@ -584,8 +584,10 @@ export default function AddTransactionScreen() {
           {
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [50, 280],
+              outputRange: [50, 280 + (insets.bottom || 0)],
             }),
+            paddingBottom: insets.bottom || 0,
+            backgroundColor: '#ECECEC',
             opacity: keyboardAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0.6, 1],
