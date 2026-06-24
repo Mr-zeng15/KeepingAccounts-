@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<body>
+<img id="svg" src="../assets/icon.svg" style="display:none" onload="convert()">
+<script>
+const sizes = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+
+async function convert() {
+  const img = document.getElementById('svg');
+  for (const [name, size] of Object.entries(sizes)) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, size, size);
+    const a = document.createElement('a');
+    a.download = `ic_launcher_${name}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+</script>
+<p>图标正在生成，请检查下载文件夹</p>
+</body>
+</html>

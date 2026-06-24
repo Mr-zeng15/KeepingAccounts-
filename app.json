@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "哈基咪记账",
+    "slug": "bookkeeping-app",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bookkeeping.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFE49A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.bookkeeping.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
