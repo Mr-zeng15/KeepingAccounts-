@@ -1,0 +1,158 @@
+# 🐱 哈基咪记账
+
+一款可爱猫咪主题的记账应用，让记账变得有趣又简单！
+
+## ✨ 功能特点
+
+### 📝 记账功能
+- **快速记账** - 简洁的数字键盘，轻松记录每一笔收支
+- **批量记账** - 保存并再记一笔，连续记账更高效
+- **分类管理** - 22种支出分类 + 10种收入分类，满足日常需求
+- **备注标签** - 常用标签自动按使用频率排序，快速选择
+- **时间戳** - 每条记录显示精确到分钟的时间（24小时制）
+
+### 📊 统计分析
+- **图表展示** - 饼图显示分类占比，折线图显示收支趋势
+- **多维度统计** - 按周、月、年查看收支情况
+- **时间选择** - 智能时间选择器，自动定位到当前选中项
+- **预算管理** - 设置月度预算，控制消费
+
+### 🎨 界面设计
+- **猫咪主题** - 可爱的猫咪形象和配色
+- **流畅动画** - 平滑的过渡动画和交互反馈
+- **响应式布局** - 适配不同屏幕尺寸
+
+### 💾 数据管理
+- **本地存储** - 使用SQLite数据库，数据安全可靠
+- **导入导出** - 支持数据备份和恢复
+- **多账本** - 支持创建多个账本
+
+## 🚀 技术栈
+
+- **前端框架**: React Native + Expo
+- **状态管理**: React Hooks
+- **数据库**: expo-sqlite
+- **导航**: React Navigation
+- **图表**: react-native-chart-kit
+- **图标**: @expo/vector-icons
+
+## 📦 安装和运行
+
+### 环境要求
+- Node.js >= 16
+- Expo CLI
+- Android Studio / Xcode（可选）
+
+### 安装步骤
+
+```bash
+# 克隆项目
+git clone https://github.com/Mr-zeng15/KeepingAccounts-.git
+
+# 进入项目目录
+cd KeepingAccounts-
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm start
+```
+
+### 运行方式
+
+```bash
+# 启动Expo开发服务器
+npm start
+
+# 在浏览器中运行
+npm run web
+
+# 在Android模拟器运行
+npm run android
+
+# 在iOS模拟器运行
+npm run ios
+```
+
+## 📱 截图
+
+（待添加应用截图）
+
+## 🗺️ 项目结构
+
+```
+src/
+├── components/          # 公共组件
+│   ├── AlertProvider.tsx    # 弹窗组件
+│   ├── AppIcon.tsx          # 图标组件
+│   ├── DatePickerWheel.tsx  # 日期选择器
+│   └── ThemedAlert.tsx      # 主题弹窗
+├── db/                  # 数据库
+│   └── database.ts          # 数据库初始化
+├── models/              # 数据模型
+│   ├── Category.ts          # 分类模型
+│   └── Transaction.ts       # 交易模型
+├── navigation/          # 导航配置
+│   └── AppNavigator.tsx     # 应用导航
+├── repositories/        # 数据仓库
+│   ├── AccountBookRepo.ts   # 账本仓库
+│   ├── CategoryRepo.ts      # 分类仓库
+│   └── TransactionRepo.ts   # 交易仓库
+├── screens/             # 页面
+│   ├── AddTransactionScreen.tsx  # 记账页面
+│   ├── HomeScreen.tsx            # 首页
+│   ├── StatisticsScreen.tsx      # 统计页面
+│   └── ProfileScreen.tsx         # 我的页面
+├── services/            # 服务
+│   └── StatisticsService.ts      # 统计服务
+└── utils/               # 工具函数
+    ├── constants.ts           # 常量定义
+    └── formatters.ts          # 格式化函数
+```
+
+## 📋 版本更新日志
+
+### v1.1.0 (2026-06-24)
+- ✨ 新增时间戳显示（24小时制）
+- ✨ 新增批量记账功能（保存并再记一笔）
+- 🐛 修复编辑账单无法切换收支类型
+- 🐛 修复备注输入框第一次点击不弹出键盘
+- 🎨 图表时间选择器不显示未来时间
+- 🎨 常用标签自动按使用频率排序
+- 🎨 优化时间选择器滚动体验
+
+### v1.0.0 (2026-06-11)
+- 🎉 首次发布
+- ✨ 基础记账功能
+- ✨ 分类管理
+- ✨ 统计图表
+- ✨ 预算管理
+- ✨ 数据导入导出
+
+## 🤝 贡献指南
+
+欢迎提交Issue和Pull Request！
+
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 📧 联系方式
+
+- 邮箱: hibozeng@qq.com
+- GitHub: [Mr-zeng15](https://github.com/Mr-zeng15)
+
+## 🙏 致谢
+
+感谢所有为这个项目做出贡献的人！
+
+---
+
+⭐ 如果你喜欢这个项目，请给它一个星标！
