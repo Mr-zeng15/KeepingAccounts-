@@ -113,11 +113,11 @@ export default function AddTransactionScreen() {
         setTransactionLoaded(true);
       }
       loadFrequentNotes();
-    }, [type])
+    }, [type, categoryId])
   );
 
   const loadFrequentNotes = async () => {
-    const notes = await TransactionRepo.getFrequentNotes(10);
+    const notes = await TransactionRepo.getFrequentNotes(10, categoryId || undefined);
     setFrequentNotes(notes);
   };
 
@@ -488,12 +488,8 @@ export default function AddTransactionScreen() {
 
       {/* 金额显示 + 备注/日期栏 — 始终在正常文档流 */}
       <View style={styles.bottomSection}>
-        {/* 金额 — 备注模式下点击回到数字键盘 */}
-        <TouchableOpacity
-          style={styles.amountArea}
-          activeOpacity={noteFocused ? 0.7 : 1}
-          onPress={() => { if (noteFocused) dismissNote(); }}
-        >
+        {/* 金额 */}
+        <View style={styles.amountArea}>
           {/* 运算过程提示 */}
           {buildHint() && (
             <Text style={styles.calcHint}>{buildHint()}</Text>
@@ -506,7 +502,7 @@ export default function AddTransactionScreen() {
           >
             {amount || '0'}
           </Animated.Text>
-        </TouchableOpacity>
+        </View>
 
         {/* 备注 + 日期 */}
         <View style={styles.actionBar}>
@@ -568,7 +564,18 @@ export default function AddTransactionScreen() {
               <TouchableOpacity
                 key={fn}
                 style={[styles.recommendChip, note === fn && styles.recommendChipActive]}
-                onPress={() => { setNote(fn); setTimeout(() => Keyboard.dismiss(), 0); }}
+                onPress={() => {
+                  // 直接设置标签内容
+                  setNote(fn);
+                  // 使用ref直接更新TextInput的值
+                  if (noteInputRef.current) {
+                    noteInputRef.current.setNativeProps({ text: fn });
+                  }
+                  // 延迟关闭键盘，确保状态更新完成
+                  setTimeout(() => {
+                    Keyboard.dismiss();
+                  }, 200);
+                }}
               >
                 <Text style={[styles.recommendText, note === fn && styles.recommendTextActive]}>{fn}</Text>
               </TouchableOpacity>
@@ -587,7 +594,7 @@ export default function AddTransactionScreen() {
               outputRange: [50, 280 + (insets.bottom || 0)],
             }),
             paddingBottom: insets.bottom || 0,
-            backgroundColor: '#ECECEC',
+            backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0.6, 1],

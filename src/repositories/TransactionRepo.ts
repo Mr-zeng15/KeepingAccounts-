@@ -161,18 +161,31 @@ export class TransactionRepo {
 
   /**
    * 获取最常用的备注（去重，按使用次数降序）
+   * @param categoryId 分类ID，如果传入则只获取该分类下的备注
+   * @param limit 返回数量限制
    */
-  static async getFrequentNotes(limit: number = 8): Promise<string[]> {
+  static async getFrequentNotes(limit: number = 8, categoryId?: number): Promise<string[]> {
     const db = await getDatabase();
-    const rows = await db.getAllAsync<{ note: string; cnt: number }>(
-      `SELECT note, COUNT(*) as cnt
-       FROM transactions
-       WHERE note IS NOT NULL AND note != ''
-       GROUP BY note
-       ORDER BY cnt DESC
-       LIMIT ?`,
-      [limit]
-    );
+    let sql = `
+      SELECT note, COUNT(*) as cnt
+      FROM transactions
+      WHERE note IS NOT NULL AND note != ''
+    `;
+    const params: any[] = [];
+
+    if (categoryId) {
+      sql += ' AND category_id = ?';
+      params.push(categoryId);
+    }
+
+    sql += `
+      GROUP BY note
+      ORDER BY cnt DESC
+      LIMIT ?
+    `;
+    params.push(limit);
+
+    const rows = await db.getAllAsync<{ note: string; cnt: number }>(sql, params);
     return rows.map((r) => r.note);
   }
 }
