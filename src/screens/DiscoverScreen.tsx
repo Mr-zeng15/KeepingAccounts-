@@ -166,7 +166,7 @@ export default function DiscoverScreen() {
                 <View style={styles.resultInfo}>
                   <Text style={styles.resultItemCat}>{item.categoryName || '未识别分类'}</Text>
                   <Text style={styles.resultItemNote}>{item.note}</Text>
-                  <Text style={styles.resultItemDate}>{resolveTransactionDate(inputText, item.date)}</Text>
+                  <Text style={styles.resultItemDate}>📅 {resolveTransactionDate(inputText, item.date)}</Text>
                 </View>
                 <Text style={[styles.resultItemAmount, { color: item.type === 'income' ? COLORS.income : COLORS.expense }]}>
                   {item.type === 'income' ? '+' : '-'}¥{item.amount.toFixed(2)}

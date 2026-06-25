@@ -1,5 +1,6 @@
 import { DeepSeekConfig } from './DeepSeekConfig';
 import { TransactionType } from '../../models/Category';
+import { parseChineseDate } from '../../utils/dateParser';
 
 export interface ParsedTransaction {
   amount: number;
@@ -19,7 +20,7 @@ const SYSTEM_PROMPT = `你是一个智能记账助手。用户会告诉你收支
     "type": "expense" 或 "income",
     "categoryName": "从分类列表中选择最匹配的分类",
     "note": "简短备注",
-    "date": "YYYY-MM-DD，如果用户提到日期就返回具体日期；没提到日期可省略或返回空字符串"
+    "date": "YYYY-MM-DD 格式的具体日期"
   }
 ]
 
@@ -32,8 +33,19 @@ const SYSTEM_PROMPT = `你是一个智能记账助手。用户会告诉你收支
 3. 尽量拆分每条独立记录。
 4. 分类必须从上面的分类列表里选择。
 5. 备注简短，保留原始含义。
-6. 日期要灵活识别，比如昨天、前天、大前天、3天前、上周五、这周一、这个月3号、6月1日、2026年6月1日。
-7. 只能返回 JSON 数组。`;
+6. 日期必须返回 YYYY-MM-DD 格式。根据以下规则推算具体日期（以当前日期为基准）：
+   - "今天" → 当天日期
+   - "昨天/昨日" → 前一天
+   - "前天" → 前两天
+   - "大前天" → 前三天
+   - "N天前/N日前" → 往前推N天
+   - "上周X/上星期X/上礼拜X" → 上周的对应星期几
+   - "这周X/本周X/这星期X" → 本周的对应星期几
+   - "X月X日/X月X号" → 当年的对应日期
+   - "XXXX年X月X日" → 具体日期
+   - 如果用户没有提到日期，返回当天日期
+7. 如果用户提到时间（如"早上"、"中午"、"下午"、"晚上"），在备注中保留时间信息。
+8. 只能返回 JSON 数组。`;
 
 export class DeepSeekTransactionParser {
   static async parse(text: string): Promise<ParsedTransaction[]> {
@@ -82,13 +94,21 @@ export class DeepSeekTransactionParser {
       const parsed = JSON.parse(jsonStr);
       const items = Array.isArray(parsed) ? parsed : [parsed];
       return items.map((item: any) => {
-        const date = String(item.date || '').trim();
+        const rawDate = String(item.date || '').trim();
+        let date: string | undefined;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+          date = rawDate;
+        } else if (rawDate) {
+          // 尝试解析中文日期（如"昨天"、"上周五"等）
+          const parsed = parseChineseDate(rawDate);
+          if (parsed) date = parsed;
+        }
         return {
           amount: Number(item.amount) || 0,
           type: (item.type === 'income' ? 'income' : 'expense') as TransactionType,
           categoryName: String(item.categoryName || ''),
           note: String(item.note || ''),
-          date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+          date,
         };
       }).filter((item) => item.amount > 0);
     } catch {
