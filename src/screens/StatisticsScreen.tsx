@@ -572,12 +572,12 @@ export default function StatisticsScreen() {
                 backgroundGradientFrom: COLORS.surface,
                 backgroundGradientTo: COLORS.surface,
                 decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(255, 181, 46, ${opacity})`,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                 labelColor: () => COLORS.textLight,
                 propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: COLORS.primaryDark,
+                  r: '3',
+                  strokeWidth: '0',
+                  fill: '#FFB52E',
                 },
                 propsForBackgroundLines: {
                   strokeDasharray: '4',

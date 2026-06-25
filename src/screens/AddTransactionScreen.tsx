@@ -48,7 +48,6 @@ export default function AddTransactionScreen() {
   const [prevValue, setPrevValue] = useState<number | null>(null);
   const [pendingOp, setPendingOp] = useState<string | null>(null);
   const [freshOp, setFreshOp] = useState(false);
-  const [showEquals, setShowEquals] = useState(false);
 
   // 金额跳动动画
   const amountScale = useRef(new Animated.Value(1)).current;
@@ -238,29 +237,20 @@ export default function AddTransactionScreen() {
 
     setPendingOp(op);
     setFreshOp(true);
-    setShowEquals(true);
   };
 
-  /** 按下等号 — 算出最终结果，然后自动保存 */
-  const handleEquals = async () => {
+  /** 按下等号 — 算出最终结果，恢复菜单让用户确认保存 */
+  const handleEquals = () => {
     if (prevValue !== null && pendingOp) {
       const current = parseFloat(amount) || 0;
       const result = calc(prevValue, current, pendingOp);
       const resultStr = fmtResult(result);
       setAmount(resultStr);
       flashAmount();
+      // 清除运算状态，恢复菜单
       setPrevValue(null);
       setPendingOp(null);
       setFreshOp(false);
-      setShowEquals(false);
-      // 等状态更新后再保存
-      setTimeout(() => {
-        // 直接用计算结果保存，不依赖 state
-        saveWithAmount(resultStr);
-      }, 100);
-    } else {
-      // 没有运算，直接保存
-      handleSave();
     }
   };
 
@@ -408,7 +398,6 @@ export default function AddTransactionScreen() {
       setPrevValue(null);
       setPendingOp(null);
       setFreshOp(false);
-      setShowEquals(false);
       flashAmount();
 
       showThemedAlert('保存成功', '已保存，可继续记账', undefined, 'checkmark-circle');
@@ -620,10 +609,8 @@ export default function AddTransactionScreen() {
         pointerEvents="auto"
       >
         {noteFocused ? (
-          // 备注聚焦时：显示可点击的切换条
-          <TouchableOpacity style={styles.keyboardSwitchBar} onPress={dismissNote} activeOpacity={0.6}>
-            <Ionicons name="calculator-outline" size={18} color={COLORS.textLight} />
-          </TouchableOpacity>
+          // 备注聚焦时：显示空白条
+          <View style={styles.keyboardSwitchBar} />
         ) : (
           // 完整数字键盘
           <>
@@ -647,20 +634,36 @@ export default function AddTransactionScreen() {
                 ))}
               </View>
               <View style={styles.doneBtnWrap}>
-                <TouchableOpacity
-                  style={styles.doneBtn}
-                  onPress={handleSave}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.doneText}>保存</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.batchBtn}
-                  onPress={handleBatchSave}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.batchText}>保存并再记一笔</Text>
-                </TouchableOpacity>
+                {prevValue !== null && pendingOp && !freshOp ? (
+                  // 有两个数字时显示"="
+                  <>
+                    <TouchableOpacity
+                      style={[styles.doneBtn, styles.equalsBtn]}
+                      onPress={handleEquals}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.equalsText}>=</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  // 只有一个数字或刚按运算符时显示"保存"
+                  <>
+                    <TouchableOpacity
+                      style={styles.doneBtn}
+                      onPress={handleSave}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.doneText}>保存</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.batchBtn}
+                      onPress={handleBatchSave}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.batchText}>保存并再记一笔</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
           </>
@@ -857,14 +860,10 @@ const styles = StyleSheet.create({
 
   // 键盘
   keyboard: { backgroundColor: '#ECECEC' },
-  // 备注聚焦时的键盘切换条
+  // 备注聚焦时的空白条
   keyboardSwitchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     height: 50,
-    gap: 6,
-    backgroundColor: '#ECECEC',
+    backgroundColor: '#FFFFFF',
   },
   opRow: {
     flexDirection: 'row',
