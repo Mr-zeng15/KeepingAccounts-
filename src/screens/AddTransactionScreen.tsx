@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, Keyboard, Animated, Platform, Dimensions, Vibration,
+  Keyboard, Animated, Platform, Dimensions, Vibration,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { showThemedAlert } from '../components/AlertProvider';
@@ -15,21 +15,17 @@ import { COLORS } from '../utils/constants';
 import { getToday } from '../utils/formatters';
 import { CategoryIcon } from '../components/AppIcon';
 import DatePickerWheel from '../components/DatePickerWheel';
-
-const NUM_ROWS = [
-  ['7', '8', '9'],
-  ['4', '5', '6'],
-  ['1', '2', '3'],
-  ['.', '0', '⌫'],
-];
-const OP_ROW = ['+', '-', '×', '÷'];
+import TransactionInputPanel from '../components/TransactionInputPanel';
 
 export default function AddTransactionScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const editId = route.params?.transactionId as number | undefined;
 
-  const [type, setType] = useState<TransactionType>('expense');
+  const [transactionLoaded, setTransactionLoaded] = useState(!editId);
+  const initialType = (route.params?.transactionType as TransactionType) || 'expense';
+
+  const [type, setType] = useState<TransactionType>(initialType);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(getToday());
@@ -58,7 +54,8 @@ export default function AddTransactionScreen() {
     ]).start();
   };
 
-  const noteInputRef = useRef<TextInput>(null);
+  // 分类网格 ScrollView 引用，用于自动滚动到选中的分类
+  const categoryScrollRef = useRef<ScrollView>(null);
 
   // 备注聚焦过渡动画
   const keyboardAnim = useRef(new Animated.Value(1)).current;   // 1=键盘可见, 0=键盘隐藏
@@ -102,19 +99,33 @@ export default function AddTransactionScreen() {
   }, [noteFocused]);
 
   const isToday = date === getToday();
-  const [transactionLoaded, setTransactionLoaded] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadCategories();
-      // 只在首次加载时读取交易数据，避免 type 变化时覆盖用户的选择
-      if (editId && !transactionLoaded) {
-        loadTransaction();
-        setTransactionLoaded(true);
-      }
-      loadFrequentNotes();
-    }, [type, categoryId])
-  );
+  // 编辑模式：首次加载时读取交易数据，设置 type 和 categoryId
+  useEffect(() => {
+    if (editId) {
+      (async () => {
+        const t = await TransactionRepo.getById(editId);
+        if (t) {
+          setType(t.type);
+          setAmount(String(t.amount));
+          setNote(t.note || '');
+          setDate(t.date);
+          setCategoryId(t.category_id);
+          // 先设置 type，等下一个渲染周期再加载分类
+          setTransactionLoaded(true);
+        }
+      })();
+    } else {
+      setTransactionLoaded(true);
+    }
+  }, []);
+
+  // type 变化或编辑数据加载完后，加载对应分类
+  useEffect(() => {
+    if (!transactionLoaded) return;
+    loadCategories();
+    loadFrequentNotes();
+  }, [type, transactionLoaded]);
 
   const loadFrequentNotes = async () => {
     const notes = await TransactionRepo.getFrequentNotes(10, categoryId || undefined);
@@ -125,25 +136,35 @@ export default function AddTransactionScreen() {
     const cats = await CategoryRepo.getAll(type);
     setCategories(cats);
 
-    // 如果当前分类不在新类型的分类列表中，自动选择第一个
-    if (cats.length > 0) {
-      const categoryExists = cats.some(cat => cat.id === categoryId);
-      if (!categoryId || !categoryExists) {
-        setCategoryId(cats[0].id);
-      }
+    // 如果当前 categoryId 在分类列表中，保持不变
+    if (categoryId && cats.some(cat => cat.id === categoryId)) {
+      return;
     }
+
+    // 新建模式：不自动选择分类，等用户主动点击
+    if (!editId) {
+      setCategoryId(null);
+      return;
+    }
+
+    // 编辑模式下如果分类不存在，也不自动选择
+    setCategoryId(null);
   };
 
-  const loadTransaction = async () => {
-    if (!editId) return;
-    const t = await TransactionRepo.getById(editId);
-    if (t) {
-      setType(t.type);
-      setAmount(String(t.amount));
-      setNote(t.note || '');
-      setDate(t.date);
-      setCategoryId(t.category_id);
-    }
+  // 处理分类选择，自动滚动到选中的分类
+  const handleCategorySelect = (catId: number, index: number) => {
+    setCategoryId(catId);
+
+    // 计算滚动位置：每个分类项宽度为 25%，每行 4 个
+    const itemWidth = Dimensions.get('window').width * 0.25;
+    const row = Math.floor(index / 4);
+    const rowHeight = 70; // 每行高度（包括图标和文字）
+    const targetY = row * rowHeight;
+
+    // 延迟滚动，等待布局完成
+    setTimeout(() => {
+      categoryScrollRef.current?.scrollTo({ y: targetY, animated: true });
+    }, 100);
   };
 
   /** 计算两个值的结果 */
@@ -445,14 +466,18 @@ export default function AddTransactionScreen() {
           },
         ]}
       >
-        <ScrollView contentContainerStyle={styles.gridContent} showsVerticalScrollIndicator={false}>
-          {categories.map((cat) => {
+        <ScrollView
+          ref={categoryScrollRef}
+          contentContainerStyle={styles.gridContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {categories.map((cat, index) => {
             const active = cat.id === categoryId;
             return (
               <TouchableOpacity
                 key={cat.id}
                 style={styles.gridItem}
-                onPress={() => setCategoryId(cat.id)}
+                onPress={() => handleCategorySelect(cat.id, index)}
                 activeOpacity={0.7}
                 disabled={noteFocused}
               >
@@ -476,199 +501,37 @@ export default function AddTransactionScreen() {
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismissNote} />
       </Animated.View>
 
-      {/* 金额显示 + 备注/日期栏 — 始终在正常文档流 */}
-      <View style={styles.bottomSection}>
-        {/* 金额 */}
-        <View style={styles.amountArea}>
-          {/* 运算过程提示 */}
-          {buildHint() && (
-            <Text style={styles.calcHint}>{buildHint()}</Text>
-          )}
-          <Text style={styles.currency}>¥</Text>
-          <Animated.Text
-            style={[styles.amountDisplay, { transform: [{ scale: amountScale }] }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          >
-            {amount || '0'}
-          </Animated.Text>
-        </View>
-
-        {/* 备注 + 日期 */}
-        <View style={styles.actionBar}>
-          <View style={[styles.noteInputWrap, noteFocused && styles.noteInputWrapFocused]}>
-            <Ionicons name="create-outline" size={15} color={COLORS.textLight} style={styles.noteIcon} />
-            <TextInput
-              ref={noteInputRef}
-              style={styles.noteInput}
-              value={note}
-              onChangeText={(text) => {
-                // 备注长度限制：最多50个字符
-                if (text.length <= 50) setNote(text);
-              }}
-              placeholder="添加备注"
-              placeholderTextColor={COLORS.textLight}
-              onFocus={() => setNoteFocused(true)}
-              returnKeyType="done"
-              blurOnSubmit
-              maxLength={50}
-            />
-            {note.length > 0 && (
-              <>
-                <Text style={styles.noteCount}>{note.length}/50</Text>
-                <TouchableOpacity onPress={() => setNote('')} style={styles.noteClear}>
-                  <Ionicons name="close-circle" size={16} color={COLORS.textLight} />
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-          <TouchableOpacity
-            style={styles.dateBtn}
-            onPress={() => { dismissNote(); setShowDatePicker(true); }}
-          >
-            <Ionicons name="calendar-outline" size={15} color={COLORS.textLight} />
-            <Text style={styles.dateBtnText}>{isToday ? '今天' : date}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 推荐词 — 备注聚焦时平滑展开（无推荐词时始终折叠） */}
-        <Animated.View
-          style={[
-            styles.recommendBar,
-            {
-              height: overlayAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: frequentNotes.length > 0 || note.trim() ? [0, 56] : [0, 0],
-              }),
-              opacity: overlayAnim,
-              overflow: 'hidden',
-            },
-          ]}
-          pointerEvents={noteFocused && (frequentNotes.length > 0 || !!note.trim()) ? 'auto' : 'none'}
-        >
-          <View style={styles.recommendHeader}>
-            <Text style={styles.recommendLabel}>常用标签</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendContent}>
-            {frequentNotes.map((fn) => (
-              <TouchableOpacity
-                key={fn}
-                style={[styles.recommendChip, note === fn && styles.recommendChipActive]}
-                onPress={() => {
-                  // 直接设置标签内容
-                  setNote(fn);
-                  // 关闭键盘
-                  Keyboard.dismiss();
-                }}
-              >
-                <Text style={[styles.recommendText, note === fn && styles.recommendTextActive]}>{fn}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Animated.View>
-      </View>
-
-      {/* 标签选择区域 — 固定在数字键盘上方 */}
-      {frequentNotes.length > 0 && !noteFocused && (
-        <View style={styles.tagBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagContent}>
-            {frequentNotes.map((fn) => (
-              <TouchableOpacity
-                key={fn}
-                style={[styles.tagChip, note === fn && styles.tagChipActive]}
-                onPress={() => {
-                  // 直接设置标签内容
-                  setNote(fn);
-                }}
-              >
-                <Text style={[styles.tagText, note === fn && styles.tagTextActive]}>{fn}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+      {/* 记账输入面板 — 选中分类后才显示 */}
+      {categoryId && (
+        <TransactionInputPanel
+          amount={amount}
+          onAmountChange={setAmount}
+          note={note}
+          onNoteChange={setNote}
+          date={date}
+          isToday={isToday}
+          onDatePress={() => setShowDatePicker(true)}
+          frequentNotes={frequentNotes}
+          prevValue={prevValue}
+          pendingOp={pendingOp}
+          freshOp={freshOp}
+          onKey={handleKey}
+          onOp={handleOp}
+          onEquals={handleEquals}
+          onSave={handleSave}
+          onBatchSave={handleBatchSave}
+          buildHint={buildHint}
+          amountScale={amountScale}
+          keyboardAnim={keyboardAnim}
+          overlayAnim={overlayAnim}
+          noteFocused={noteFocused}
+          onNoteFocus={() => setNoteFocused(true)}
+          onNoteBlur={() => setNoteFocused(false)}
+          dismissNote={dismissNote}
+          keyboardHeight={keyboardHeight}
+          insetsBottom={insets.bottom}
+        />
       )}
-
-      {/* 数字键盘 — 备注聚焦时折叠为切换条，避免两个键盘抢位置 */}
-      <Animated.View
-        style={[
-          styles.keyboard,
-          {
-            height: keyboardAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [50, 280 + (insets.bottom || 0)],
-            }),
-            paddingBottom: insets.bottom || 0,
-            backgroundColor: '#FFFFFF',
-            opacity: keyboardAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.6, 1],
-            }),
-            overflow: 'hidden',
-          },
-        ]}
-        pointerEvents="auto"
-      >
-        {noteFocused ? (
-          // 备注聚焦时：显示空白条
-          <View style={styles.keyboardSwitchBar} />
-        ) : (
-          // 完整数字键盘
-          <>
-            <View style={styles.opRow}>
-              {OP_ROW.map((op) => (
-                <TouchableOpacity key={op} style={styles.opBtn} onPress={() => handleOp(op)}>
-                  <Text style={styles.opText}>{op}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.numArea}>
-              <View style={styles.numGrid}>
-                {NUM_ROWS.map((row, ri) => (
-                  <View key={ri} style={styles.numRow}>
-                    {row.map((key) => (
-                      <TouchableOpacity key={key} style={styles.numBtn} onPress={() => handleKey(key)} activeOpacity={0.6}>
-                        <Text style={[styles.numText, key === '⌫' && styles.delText]}>{key}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ))}
-              </View>
-              <View style={styles.doneBtnWrap}>
-                {prevValue !== null && pendingOp && !freshOp ? (
-                  // 有两个数字时显示"="
-                  <>
-                    <TouchableOpacity
-                      style={[styles.doneBtn, styles.equalsBtn]}
-                      onPress={handleEquals}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.equalsText}>=</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  // 只有一个数字或刚按运算符时显示"保存"
-                  <>
-                    <TouchableOpacity
-                      style={styles.doneBtn}
-                      onPress={handleSave}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.doneText}>保存</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.batchBtn}
-                      onPress={handleBatchSave}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.batchText}>保存并再记一笔</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            </View>
-          </>
-        )}
-      </Animated.View>
 
       {/* 日期滚轮选择器 */}
       <DatePickerWheel
@@ -746,196 +609,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.01)',
     zIndex: 1,
   },
-
-  // 底部区域：金额 + 备注
-  bottomSection: {
-    backgroundColor: COLORS.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.divider,
-    zIndex: 2,
-  },
-  amountArea: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  currency: { fontSize: 20, fontWeight: '600', color: COLORS.text, marginRight: 4, marginBottom: 3 },
-  amountDisplay: { fontSize: 36, fontWeight: '700', color: COLORS.text, maxWidth: '80%' },
-  calcHint: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '600',
-    position: 'absolute',
-    left: 20,
-    top: 10,
-  },
-
-  // 备注栏
-  actionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  noteInputWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 10,
-    height: 36,
-  },
-  noteInputWrapFocused: {
-    borderColor: COLORS.primary,
-    borderWidth: 1.5,
-    backgroundColor: '#fff',
-  },
-  noteIcon: { marginRight: 4 },
-  noteInput: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text,
-    paddingVertical: 0,
-  },
-  noteCount: { fontSize: 10, color: COLORS.textLight, marginRight: 2 },
-  noteClear: { marginLeft: 2, padding: 2 },
-  dateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 10,
-    height: 36,
-    gap: 4,
-  },
-  dateBtnText: { fontSize: 13, color: COLORS.text },
-
-  // 推荐词
-  recommendBar: {
-    paddingHorizontal: 10,
-    paddingBottom: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.divider,
-    paddingTop: 2,
-  },
-  recommendHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  recommendLabel: { fontSize: 12, color: COLORS.textLight, marginRight: 8 },
-  addTagBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#FFF3D0',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  addTagText: { fontSize: 11, color: COLORS.text, fontWeight: '700' },
-  recommendContent: { gap: 8, paddingRight: 10, alignItems: 'center' },
-  recommendChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 16,
-    backgroundColor: '#F2F2F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recommendChipActive: {
-    backgroundColor: COLORS.primary,
-  },
-  recommendText: { fontSize: 13, lineHeight: 15, color: COLORS.textSecondary, includeFontPadding: false, textAlignVertical: 'center' },
-  recommendTextActive: { color: '#fff', fontWeight: '600' },
-
-  // 键盘
-  keyboard: { backgroundColor: '#ECECEC' },
-  // 备注聚焦时的空白条
-  keyboardSwitchBar: {
-    height: 50,
-    backgroundColor: '#FFFFFF',
-  },
-  opRow: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#DDD',
-  },
-  opBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: '#DDD',
-  },
-  opText: { fontSize: 18, color: COLORS.text, fontWeight: '500' },
-  numArea: {
-    flexDirection: 'row',
-  },
-  numGrid: { flex: 3 },
-  numRow: { flexDirection: 'row' },
-  numBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DDD',
-    backgroundColor: '#FAFAFA',
-  },
-  numText: { fontSize: 20, fontWeight: '500', color: COLORS.text },
-  delText: { fontSize: 18 },
-  doneBtnWrap: {
-    flex: 1,
-  },
-  doneBtn: {
-    flex: 1,
-    backgroundColor: '#F5C543',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DDD',
-  },
-  batchBtn: {
-    flex: 1,
-    backgroundColor: '#FFE8A3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DDD',
-  },
-  equalsBtn: {
-    backgroundColor: '#FF9500',
-  },
-  doneText: { fontSize: 12, fontWeight: '700', color: COLORS.text },
-  batchText: { fontSize: 12, fontWeight: '700', color: COLORS.text },
-  equalsText: { color: '#fff', fontSize: 22 },
-  // 标签栏样式
-  tagBar: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.divider,
-  },
-  tagContent: { gap: 8, alignItems: 'center' },
-  tagChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#E0E0E0',
-  },
-  tagChipActive: {
-    backgroundColor: COLORS.primary,
-  },
-  tagText: { fontSize: 13, color: COLORS.text },
-  tagTextActive: { color: '#fff', fontWeight: '600' },
 });

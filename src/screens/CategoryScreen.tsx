@@ -21,9 +21,23 @@ export default function CategoryScreen() {
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState(DEFAULT_ICON_KEY);
   const [iconTab, setIconTab] = useState<'income' | 'expense'>('expense');
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  // 打开新建弹窗
   const openModal = () => {
+    setEditingCategory(null);
     setNewName('');
     setNewIcon(DEFAULT_ICON_KEY);
+    setIconTab(filterType);
+    setModalVisible(true);
+  };
+
+  // 打开编辑弹窗
+  const openEditModal = (cat: Category) => {
+    if (cat.is_default) { showThemedAlert('提示', '默认分类不能编辑'); return; }
+    setEditingCategory(cat);
+    setNewName(cat.name);
+    setNewIcon(cat.icon);
     setIconTab(filterType);
     setModalVisible(true);
   };
@@ -37,7 +51,14 @@ export default function CategoryScreen() {
 
   const handleAdd = async () => {
     if (!newName.trim()) { showThemedAlert('提示', '请输入分类名称'); return; }
-    await CategoryRepo.create({ name: newName.trim(), icon: newIcon, type: filterType });
+
+    if (editingCategory) {
+      // 编辑模式：更新分类
+      await CategoryRepo.update(editingCategory.id, { name: newName.trim(), icon: newIcon });
+    } else {
+      // 新建模式：创建分类
+      await CategoryRepo.create({ name: newName.trim(), icon: newIcon, type: filterType });
+    }
     setModalVisible(false);
     loadData();
   };
@@ -65,7 +86,11 @@ export default function CategoryScreen() {
   const filteredIconList = (iconTab === 'income'
     ? ICON_POOL_LIST.filter(k => INCOME_ICON_KEYS.has(k))
     : ICON_POOL_LIST.filter(k => !INCOME_ICON_KEYS.has(k))
-  ).filter(k => !usedIconKeys.has(k));
+  ).filter(k => {
+    // 编辑模式下，保留当前编辑的图标
+    if (editingCategory && k === editingCategory.icon) return true;
+    return !usedIconKeys.has(k);
+  });
 
   return (
     <View style={styles.container}>
@@ -91,6 +116,7 @@ export default function CategoryScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.item}
+            onPress={() => openEditModal(item)}
             onLongPress={() => handleDelete(item)}
           >
             <View style={styles.iconWrap}>
@@ -112,7 +138,7 @@ export default function CategoryScreen() {
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
           <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={() => {}}>
-            <Text style={styles.modalTitle}>新建分类</Text>
+            <Text style={styles.modalTitle}>{editingCategory ? '编辑分类' : '新建分类'}</Text>
             <TextInput
               style={styles.modalInput}
               value={newName}
@@ -153,7 +179,7 @@ export default function CategoryScreen() {
                 <Text style={styles.cancelText}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.confirmBtn} onPress={handleAdd}>
-                <Text style={styles.confirmText}>确定</Text>
+                <Text style={styles.confirmText}>{editingCategory ? '保存' : '确定'}</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

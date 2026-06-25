@@ -122,6 +122,7 @@ export default function HomeScreen() {
           dateLabel: formatDateLabel(date),
           weekday: getWeekday(date),
           totalExpense: items.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+          totalIncome: items.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0),
           data: items,
         };
       })
@@ -139,7 +140,7 @@ export default function HomeScreen() {
   const handleEdit = () => {
     if (!selectedTx) return;
     setShowAction(false);
-    navigation.navigate('AddTransaction', { transactionId: selectedTx.id });
+    navigation.navigate('AddTransaction', { transactionId: selectedTx.id, transactionType: selectedTx.type });
   };
 
   const handleDelete = () => {
@@ -243,15 +244,24 @@ export default function HomeScreen() {
               <Text style={styles.dayDate}>{section.dateLabel}</Text>
               <Text style={styles.dayWeek}>{section.weekday}</Text>
             </View>
-            {section.totalExpense > 0 && (
-              <Text style={styles.dayTotal}>支出 ¥{formatAmount(section.totalExpense)}</Text>
-            )}
+            <View style={styles.dayRight}>
+              {section.totalExpense > 0 && (
+                <Text style={styles.dayExpense}>支 ¥{formatAmount(section.totalExpense)}</Text>
+              )}
+              {section.totalIncome > 0 && (
+                <Text style={styles.dayIncome}>收 ¥{formatAmount(section.totalIncome)}</Text>
+              )}
+            </View>
           </View>
         )}
-        renderItem={({ item }) => (
+        renderItem={({ item, index, section }) => (
           <TouchableOpacity
-            style={styles.txItem}
-            onPress={() => navigation.navigate('AddTransaction', { transactionId: item.id })}
+            style={[
+              styles.txItem,
+              index === 0 && styles.txItemFirst,
+              index === section.data.length - 1 && styles.txItemLast,
+            ]}
+            onPress={() => navigation.navigate('AddTransaction', { transactionId: item.id, transactionType: item.type })}
             onLongPress={() => handleLongPress(item)}
             activeOpacity={0.7}
           >
@@ -309,15 +319,15 @@ export default function HomeScreen() {
 
             {/* 鎿嶄綔鎸夐挳 */}
             <TouchableOpacity style={styles.actionBtn} onPress={handleEdit}>
-              <Ionicons name="create-outline" size={20} color={COLORS.text} />
+              <Ionicons name="create-outline" size={20} color={COLORS.primaryDark} />
               <Text style={styles.actionBtnText}>编辑</Text>
             </TouchableOpacity>
 
             <View style={styles.actionDivider} />
 
             <TouchableOpacity style={styles.actionBtn} onPress={handleDelete}>
-              <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-              <Text style={[styles.actionBtnText, { color: COLORS.danger }]}>删除</Text>
+              <Ionicons name="trash-outline" size={20} color={COLORS.primaryDark} />
+              <Text style={styles.actionBtnText}>删除</Text>
             </TouchableOpacity>
 
             <View style={styles.actionDivider} />
@@ -438,22 +448,34 @@ const styles = StyleSheet.create({
   listContent: { paddingTop: 8, paddingBottom: 26 },
   dayHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 18, paddingTop: 12, paddingBottom: 8,
+    paddingHorizontal: 18, paddingTop: 10, paddingBottom: 6,
+    marginTop: 2,
+    backgroundColor: COLORS.background,
   },
   dayLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dayDate: { fontSize: 14, fontWeight: '600', color: COLORS.text },
   dayWeek: { fontSize: 12, color: COLORS.textLight },
-  dayTotal: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
+  dayRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dayExpense: { fontSize: 11, color: COLORS.textLight },
+  dayIncome: { fontSize: 11, color: COLORS.textLight },
 
   txItem: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.surface,
     marginHorizontal: 16,
-    marginBottom: 8,
     paddingHorizontal: 14, paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
+  txItemFirst: {
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  txItemLast: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    marginBottom: 8,
   },
   txIconBg: {
     width: 40, height: 40, borderRadius: 20,
@@ -477,8 +499,8 @@ const styles = StyleSheet.create({
   actionOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-    paddingBottom: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   actionSheet: {
     backgroundColor: '#fff',
@@ -498,7 +520,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFF4D3',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -518,9 +540,9 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 15, color: COLORS.text },
   actionCancel: {
     justifyContent: 'center',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#FFF4D3',
   },
-  actionCancelText: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center' },
+  actionCancelText: { fontSize: 15, color: COLORS.text, fontWeight: '600', textAlign: 'center' },
 
   // 月份下拉选择器
   monthOverlay: {
