@@ -1,9 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+/** 无涟漪的标签按钮 — 仅去掉视觉效果，保留完整点击逻辑 */
+function SilentTabBarButton(props: any) {
+  const { children, accessibilityState, ...rest } = props;
+  const focused = accessibilityState?.selected;
+  return (
+    <Pressable
+      {...rest}
+      accessibilityState={accessibilityState}
+      style={(state: any) => {
+        const base = typeof props.style === 'function' ? props.style(state) : props.style;
+        return [base, { overflow: 'hidden' }];
+      }}
+      android_ripple={{ color: 'transparent' }}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 import HomeScreen from '../screens/HomeScreen';
 import AddTransactionScreen from '../screens/AddTransactionScreen';
 import CategoryScreen from '../screens/CategoryScreen';
@@ -50,6 +70,7 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => <SilentTabBarButton {...props} />,
         }}
       />
       <Tab.Screen
@@ -60,6 +81,7 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => <SilentTabBarButton {...props} />,
         }}
       />
       <Tab.Screen
@@ -81,6 +103,7 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'mic' : 'mic-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => <SilentTabBarButton {...props} />,
         }}
       />
       <Tab.Screen
@@ -91,6 +114,7 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => <SilentTabBarButton {...props} />,
         }}
       />
     </Tab.Navigator>

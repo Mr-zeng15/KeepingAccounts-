@@ -154,9 +154,9 @@ export default function TransactionInputPanel({
               }),
               opacity: overlayAnim,
               overflow: 'hidden',
+              pointerEvents: noteFocused && (frequentNotes.length > 0 || !!note.trim()) ? 'auto' : 'none',
             },
           ]}
-          pointerEvents={noteFocused && (frequentNotes.length > 0 || !!note.trim()) ? 'auto' : 'none'}
         >
           <View style={styles.recommendHeader}>
             <Text style={styles.recommendLabel}>常用标签</Text>
@@ -211,9 +211,9 @@ export default function TransactionInputPanel({
               outputRange: [0.6, 1],
             }),
             overflow: 'hidden',
+            pointerEvents: 'auto',
           },
         ]}
-        pointerEvents="auto"
       >
         {noteFocused ? (
           // 备注聚焦时：显示空白条

@@ -49,8 +49,8 @@ export default function AddTransactionScreen() {
   const amountScale = useRef(new Animated.Value(1)).current;
   const flashAmount = () => {
     Animated.sequence([
-      Animated.timing(amountScale, { toValue: 1.15, duration: 120, useNativeDriver: true }),
-      Animated.timing(amountScale, { toValue: 1, duration: 120, useNativeDriver: true }),
+      Animated.timing(amountScale, { toValue: 1.15, duration: 120, useNativeDriver: false }),
+      Animated.timing(amountScale, { toValue: 1, duration: 120, useNativeDriver: false }),
     ]).start();
   };
 
@@ -88,12 +88,12 @@ export default function AddTransactionScreen() {
     if (noteFocused) {
       Animated.parallel([
         Animated.timing(keyboardAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
-        Animated.timing(overlayAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 1, duration: 220, useNativeDriver: false }),
       ]).start();
     } else {
       Animated.parallel([
         Animated.timing(keyboardAnim, { toValue: 1, duration: 220, useNativeDriver: false }),
-        Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
       ]).start();
     }
   }, [noteFocused]);
@@ -128,27 +128,37 @@ export default function AddTransactionScreen() {
   }, [type, transactionLoaded]);
 
   const loadFrequentNotes = async () => {
-    const notes = await TransactionRepo.getFrequentNotes(10, categoryId || undefined);
-    setFrequentNotes(notes);
+    try {
+      const notes = await TransactionRepo.getFrequentNotes(10, categoryId || undefined);
+      setFrequentNotes(notes);
+    } catch (e) {
+      console.warn('加载常用备注失败:', e);
+      setFrequentNotes([]);
+    }
   };
 
   const loadCategories = async () => {
-    const cats = await CategoryRepo.getAll(type);
-    setCategories(cats);
+    try {
+      const cats = await CategoryRepo.getAll(type);
+      setCategories(cats);
 
-    // 如果当前 categoryId 在分类列表中，保持不变
-    if (categoryId && cats.some(cat => cat.id === categoryId)) {
-      return;
-    }
+      // 如果当前 categoryId 在分类列表中，保持不变
+      if (categoryId && cats.some(cat => cat.id === categoryId)) {
+        return;
+      }
 
-    // 新建模式：不自动选择分类，等用户主动点击
-    if (!editId) {
+      // 新建模式：不自动选择分类，等用户主动点击
+      if (!editId) {
+        setCategoryId(null);
+        return;
+      }
+
+      // 编辑模式下如果分类不存在，也不自动选择
       setCategoryId(null);
-      return;
+    } catch (e) {
+      console.warn('加载分类失败:', e);
+      setCategories([]);
     }
-
-    // 编辑模式下如果分类不存在，也不自动选择
-    setCategoryId(null);
   };
 
   // 处理分类选择，自动滚动到选中的分类
@@ -495,8 +505,7 @@ export default function AddTransactionScreen() {
 
       {/* 备注聚焦时的遮罩 — 使用动画淡入淡出，避免闪烁 */}
       <Animated.View
-        style={[styles.noteOverlay, { opacity: overlayAnim }]}
-        pointerEvents={noteFocused ? 'auto' : 'none'}
+        style={[styles.noteOverlay, { opacity: overlayAnim, pointerEvents: noteFocused ? 'auto' : 'none' }]}
       >
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismissNote} />
       </Animated.View>
@@ -533,13 +542,15 @@ export default function AddTransactionScreen() {
         />
       )}
 
-      {/* 日期滚轮选择器 */}
-      <DatePickerWheel
-        visible={showDatePicker}
-        date={date}
-        onConfirm={(d) => { setDate(d); setShowDatePicker(false); }}
-        onCancel={() => setShowDatePicker(false)}
-      />
+      {/* 日期滚轮选择器 — 条件渲染避免 hidden Modal 的 aria-hidden 冲突 */}
+      {showDatePicker && (
+        <DatePickerWheel
+          visible={showDatePicker}
+          date={date}
+          onConfirm={(d) => { setDate(d); setShowDatePicker(false); }}
+          onCancel={() => setShowDatePicker(false)}
+        />
+      )}
     </View>
   );
 }
