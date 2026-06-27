@@ -11,7 +11,7 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
 import Svg, { Circle, G } from 'react-native-svg';
 import { StatisticsService, CategorySummary, DailySummary, RangeSummary } from '../services/StatisticsService';
@@ -343,8 +343,8 @@ export default function StatisticsScreen() {
     loadData();
   }, [timeMode]);
 
-  useEffect(() => {
-    const unsubscribeFocus = navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       if (isPickerJustClosed.current) {
         isPickerJustClosed.current = false;
         return;
@@ -366,12 +366,8 @@ export default function StatisticsScreen() {
       setWeekNum(currentWeekNum);
 
       loadData(currentYear, currentMonth, currentWeekNum);
-    });
-
-    return () => {
-      unsubscribeFocus();
-    };
-  }, [navigation, loadData]);
+    }, [loadData])
+  );
 
   // 关闭弹窗的辅助函数
   const closePicker = useCallback(() => {

@@ -68,9 +68,8 @@ export default function BillStatisticsScreen() {
     setMonthlyData(months);
   }, [year]);
 
-  // 使用 navigation.addListener 来监听页面焦点事件
-  useEffect(() => {
-    const unsubscribeFocus = navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       if (isPickerJustClosed.current) {
         isPickerJustClosed.current = false;
         return;
@@ -85,12 +84,8 @@ export default function BillStatisticsScreen() {
       const currentYear = new Date().getFullYear();
       setYear(currentYear);
       loadData(currentYear);
-    });
-
-    return () => {
-      unsubscribeFocus();
-    };
-  }, [navigation, loadData]);
+    }, [loadData])
+  );
 
   // 关闭弹窗的辅助函数
   const closeYearPicker = useCallback(() => {
