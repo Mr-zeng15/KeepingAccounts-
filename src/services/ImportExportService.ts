@@ -196,9 +196,8 @@ export class ImportExportService {
     }
 
     const file = new File(result.assets[0].uri);
-    const base64Content = await file.readAsStringAsync({ encoding: 'base64' });
-
-    const bytes = this.base64ToBytes(base64Content);
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(arrayBuffer));
     const fileContent = this.detectAndConvertEncoding(bytes);
 
     if (fileContent.charCodeAt(0) === 0xFEFF) {
@@ -490,29 +489,6 @@ export class ImportExportService {
     }
 
     return { imported, skipped };
-  }
-
-  private static base64ToBytes(base64: string): number[] {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    const bytes: number[] = [];
-    let i = 0;
-
-    while (i < base64.length) {
-      const c1 = chars.indexOf(base64[i++]);
-      const c2 = chars.indexOf(base64[i++]);
-      const c3 = chars.indexOf(base64[i++]);
-      const c4 = chars.indexOf(base64[i++]);
-
-      const b1 = (c1 << 2) | (c2 >> 4);
-      const b2 = ((c2 & 15) << 4) | (c3 >> 2);
-      const b3 = ((c3 & 3) << 6) | c4;
-
-      bytes.push(b1);
-      if (c3 !== 64) bytes.push(b2);
-      if (c4 !== 64) bytes.push(b3);
-    }
-
-    return bytes;
   }
 
   private static detectAndConvertEncoding(bytes: number[]): string {
