@@ -22,6 +22,7 @@ interface MonthData {
 export default function BillStatisticsScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  // 每次渲染都获取最新日期（确保日期选择器永远基于实时）
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -296,47 +297,58 @@ export default function BillStatisticsScreen() {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* 年份下拉选择 */}
+      {/* 年份下拉选择 - 最新在底部 */}
       <Modal visible={showYearPicker} transparent animationType="fade" onRequestClose={closeYearPicker}>
         <TouchableOpacity style={styles.yearOverlay} activeOpacity={1} onPress={closeYearPicker}>
           <View style={styles.yearDropdown} onStartShouldSetResponder={() => true}>
             <Text style={styles.yearDropdownTitle}>选择年份</Text>
             <ScrollView style={styles.yearList} showsVerticalScrollIndicator={false}>
-              {Array.from({ length: 6 }, (_, i) => now.getFullYear() - i).map((y) => (
-                <TouchableOpacity
-                  key={y}
-                  style={[styles.yearItem, y === year && styles.yearItemActive]}
-                  onPress={() => { setYear(y); closeYearPicker(); }}
-                >
-                  <Text style={[styles.yearItemText, y === year && styles.yearItemTextActive]}>
-                    {y}年
-                  </Text>
-                  {y === year && <Ionicons name="checkmark" size={18} color={COLORS.primary} />}
-                </TouchableOpacity>
-              ))}
+              {Array.from({ length: 6 }, (_, i) => now.getFullYear() - 5 + i).map((y) => {
+                const isCurrent = y === now.getFullYear();
+                return (
+                  <TouchableOpacity
+                    key={y}
+                    style={[styles.yearItem, y === year && styles.yearItemActive]}
+                    onPress={() => { setYear(y); closeYearPicker(); }}
+                  >
+                    <Text style={[styles.yearItemText, y === year && styles.yearItemTextActive]}>
+                      {y}年{isCurrent ? ' (今年)' : ''}
+                    </Text>
+                    {y === year && <Ionicons name="checkmark" size={18} color={COLORS.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* 月份下拉选择 */}
+      {/* 月份下拉选择 - 根据当前年截断到当前月，无未来月份 */}
       <Modal visible={showMonthPicker} transparent animationType="fade" onRequestClose={closeMonthPicker}>
         <TouchableOpacity style={styles.yearOverlay} activeOpacity={1} onPress={closeMonthPicker}>
           <View style={styles.yearDropdown} onStartShouldSetResponder={() => true}>
             <Text style={styles.yearDropdownTitle}>选择月份</Text>
             <ScrollView style={styles.yearList} showsVerticalScrollIndicator={false}>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.yearItem, m === month && styles.yearItemActive]}
-                  onPress={() => { setMonth(m); closeMonthPicker(); }}
-                >
-                  <Text style={[styles.yearItemText, m === month && styles.yearItemTextActive]}>
-                    {m}月
-                  </Text>
-                  {m === month && <Ionicons name="checkmark" size={18} color={COLORS.primary} />}
-                </TouchableOpacity>
-              ))}
+              {(() => {
+                // 实时计算：当前年只显示到当前月，其他年显示 1-12 月
+                const maxMonth = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+                const months = Array.from({ length: maxMonth }, (_, i) => i + 1);
+                return months.map((m) => {
+                  const isCurrent = m === now.getMonth() + 1 && year === now.getFullYear();
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={[styles.yearItem, m === month && styles.yearItemActive]}
+                      onPress={() => { setMonth(m); closeMonthPicker(); }}
+                    >
+                      <Text style={[styles.yearItemText, m === month && styles.yearItemTextActive]}>
+                        {m}月{isCurrent ? ' (本月)' : ''}
+                      </Text>
+                      {m === month && <Ionicons name="checkmark" size={18} color={COLORS.primary} />}
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
             </ScrollView>
           </View>
         </TouchableOpacity>
