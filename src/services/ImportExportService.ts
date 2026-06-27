@@ -187,7 +187,7 @@ export class ImportExportService {
    */
   static async importFromCsv(bookId: number): Promise<{ imported: number; skipped: number }> {
     const result = await DocumentPicker.getDocumentAsync({
-      type: 'text/csv',
+      type: ['text/csv', 'text/comma-separated-values', 'application/vnd.ms-excel', 'text/plain'],
       copyToCacheDirectory: true,
     });
 
@@ -196,15 +196,16 @@ export class ImportExportService {
     }
 
     const file = new File(result.assets[0].uri);
-    const fileContent = await file.text();
+    let fileContent = await file.text();
+
+    if (fileContent.charCodeAt(0) === 0xFEFF) {
+      fileContent = fileContent.slice(1);
+    }
 
     const lines = fileContent.split('\n').filter((line: string) => line.trim());
     if (lines.length < 2) {
       throw new Error('CSV 文件为空或格式不正确');
     }
-
-    // Skip header
-    const dataLines = lines.slice(1);
 
     const db = await getDatabase();
     const categoryMap = new Map<string, number>();
@@ -215,30 +216,120 @@ export class ImportExportService {
       categoryMap.set(c.name, c.id);
     }
 
+    const parseCsvLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result;
+    };
+
+    const headerLine = lines[0];
+    const headers = parseCsvLine(headerLine).map(h => h.trim().toLowerCase());
+
+    const findCol = (names: string[]): number => {
+      for (const name of names) {
+        const idx = headers.indexOf(name.toLowerCase());
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
+    const dateCol = findCol(['日期', 'date', '交易日期', '时间', '记账日期']);
+    const typeCol = findCol(['类型', 'type', '收支类型', '收支', '收入支出']);
+    const categoryCol = findCol(['分类', 'category', '类别', '账目分类', '一级分类']);
+    const subCategoryCol = findCol(['子分类', '二级分类', '详细分类']);
+    const amountCol = findCol(['金额', 'amount', '支出金额', '收入金额', '价格', '费用']);
+    const noteCol = findCol(['备注', 'note', '说明', '描述', '备注信息', '详情']);
+
+    if (dateCol === -1 || amountCol === -1) {
+      throw new Error('CSV 格式不兼容：缺少必要的日期或金额列');
+    }
+
     let imported = 0;
     let skipped = 0;
 
-    for (const line of dataLines) {
-      // Simple CSV parse (handles basic quoting)
-      const match = line.match(/^(\d{4}-\d{2}-\d{2}),(收入|支出),([^,]+),([\d.]+),(.*)$/);
-      if (!match) {
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+
+      const values = parseCsvLine(line);
+
+      let dateStr = values[dateCol]?.trim() || '';
+      let typeLabel = typeCol >= 0 ? values[typeCol]?.trim() : '';
+      let categoryName = categoryCol >= 0 ? values[categoryCol]?.trim() : '';
+      const subCategoryName = subCategoryCol >= 0 ? values[subCategoryCol]?.trim() : '';
+      let amountStr = values[amountCol]?.trim() || '';
+      const note = noteCol >= 0 ? values[noteCol]?.trim() : '';
+
+      if (subCategoryName && !categoryMap.has(categoryName) && categoryMap.has(subCategoryName)) {
+        categoryName = subCategoryName;
+      }
+
+      let type = '';
+      if (typeLabel) {
+        if (typeLabel.includes('收入') || typeLabel.toLowerCase().includes('income') || typeLabel === '+') {
+          type = 'income';
+        } else if (typeLabel.includes('支出') || typeLabel.toLowerCase().includes('expense') || typeLabel.toLowerCase().includes('expenditure') || typeLabel === '-') {
+          type = 'expense';
+        }
+      }
+
+      if (!type) {
+        const amountNum = parseFloat(amountStr.replace(/[^\d.-]/g, ''));
+        if (amountNum < 0) {
+          type = 'expense';
+          amountStr = Math.abs(amountNum).toString();
+        } else {
+          type = 'expense';
+        }
+      }
+
+      const dateMatch = dateStr.match(/(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})/);
+      if (dateMatch) {
+        const [, y, m, d] = dateMatch;
+        dateStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      } else {
         skipped++;
         continue;
       }
 
-      const [, date, typeLabel, categoryName, amountStr, note] = match;
-      const type = typeLabel === '收入' ? 'income' : 'expense';
-      const amount = parseFloat(amountStr);
-      const categoryId = categoryMap.get(categoryName);
+      const amount = parseFloat(amountStr.replace(/[^\d.]/g, ''));
 
-      if (!categoryId || isNaN(amount)) {
+      let categoryId = categoryMap.get(categoryName);
+      if (!categoryId) {
+        const matchedCategory = Array.from(categoryMap.keys()).find(
+          key => key.includes(categoryName) || categoryName.includes(key)
+        );
+        if (matchedCategory) {
+          categoryId = categoryMap.get(matchedCategory);
+        }
+      }
+
+      if (!categoryId || isNaN(amount) || amount <= 0) {
         skipped++;
         continue;
       }
 
       await db.runAsync(
         'INSERT INTO transactions (book_id, category_id, amount, type, note, date) VALUES (?, ?, ?, ?, ?, ?)',
-        [bookId, categoryId, amount, type, note.replace(/^"|"$/g, '').replace(/""/g, '"'), date]
+        [bookId, categoryId, amount, type, note, dateStr]
       );
       imported++;
     }
