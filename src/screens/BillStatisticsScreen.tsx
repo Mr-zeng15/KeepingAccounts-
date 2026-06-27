@@ -24,49 +24,64 @@ export default function BillStatisticsScreen() {
   const insets = useSafeAreaInsets();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const isPickerJustClosed = useRef(false);
   const hasBeenFocused = useRef(false);
 
-  // 使用 ref 存储最新的 year 值
-  const yearRef = useRef(year);
+  // 月账单当前数据
+  const [monthIncome, setMonthIncome] = useState(0);
+  const [monthExpense, setMonthExpense] = useState(0);
 
-  // 同步 year 到 ref
-  useEffect(() => {
-    yearRef.current = year;
-  }, [year]);
+  // 年账单数据（1-12月）
   const [yearIncome, setYearIncome] = useState(0);
   const [yearExpense, setYearExpense] = useState(0);
   const [monthlyData, setMonthlyData] = useState<MonthData[]>([]);
 
-  const loadData = useCallback(async (targetYear?: number) => {
+  // 同步最新的 year/month 到 ref
+  const yearRef = useRef(year);
+  const monthRef = useRef(month);
+  useEffect(() => {
+    yearRef.current = year;
+  }, [year]);
+  useEffect(() => {
+    monthRef.current = month;
+  }, [month]);
+
+  const loadData = useCallback(async (targetYear?: number, targetMonth?: number) => {
     const y = targetYear ?? year;
+    const m = targetMonth ?? month;
 
     const books = await AccountBookRepo.getAll();
     if (!books.length) return;
     const bookId = books[0].id;
 
+    // 加载指定月份数据
+    const monthSummary = await StatisticsService.getMonthlySummary(bookId, y, m);
+    setMonthIncome(monthSummary.income);
+    setMonthExpense(monthSummary.expense);
+
+    // 加载整年12个月数据
     let totalIncome = 0;
     let totalExpense = 0;
     const months: MonthData[] = [];
-
-    for (let m = 1; m <= 12; m++) {
-      const summary = await StatisticsService.getMonthlySummary(bookId, y, m);
+    for (let mm = 1; mm <= 12; mm++) {
+      const summary = await StatisticsService.getMonthlySummary(bookId, y, mm);
       totalIncome += summary.income;
       totalExpense += summary.expense;
       months.push({
-        month: m,
+        month: mm,
         income: summary.income,
         expense: summary.expense,
         balance: summary.income - summary.expense,
       });
     }
-
     setYearIncome(totalIncome);
     setYearExpense(totalExpense);
     setMonthlyData(months);
-  }, [year]);
+  }, [year, month]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,22 +96,34 @@ export default function BillStatisticsScreen() {
       }
 
       hasBeenFocused.current = true;
-      const currentYear = new Date().getFullYear();
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
       setYear(currentYear);
-      loadData(currentYear);
+      setMonth(currentMonth);
+      loadData(currentYear, currentMonth);
     }, [loadData])
   );
 
-  // 关闭弹窗的辅助函数
+  // 年份选择器关闭
   const closeYearPicker = useCallback(() => {
     isPickerJustClosed.current = true;
     setShowYearPicker(false);
-    // 使用 ref 获取最新的 year 值
     setTimeout(() => {
-      loadData(yearRef.current);
+      loadData(yearRef.current, monthRef.current);
     }, 0);
   }, [loadData]);
 
+  // 月份选择器关闭
+  const closeMonthPicker = useCallback(() => {
+    isPickerJustClosed.current = true;
+    setShowMonthPicker(false);
+    setTimeout(() => {
+      loadData(yearRef.current, monthRef.current);
+    }, 0);
+  }, [loadData]);
+
+  const monthBalance = monthIncome - monthExpense;
   const yearBalance = yearIncome - yearExpense;
 
   return (
@@ -108,10 +135,18 @@ export default function BillStatisticsScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <TouchableOpacity style={styles.yearSelector} onPress={() => setShowYearPicker(true)}>
-            <Text style={styles.yearText}>{year}年</Text>
-            <Ionicons name="chevron-down" size={16} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerSelectors}>
+            <TouchableOpacity style={styles.yearSelector} onPress={() => setShowYearPicker(true)}>
+              <Text style={styles.yearText}>{year}年</Text>
+              <Ionicons name="chevron-down" size={14} color="#fff" />
+            </TouchableOpacity>
+            {viewMode === 'month' && (
+              <TouchableOpacity style={styles.yearSelector} onPress={() => setShowMonthPicker(true)}>
+                <Text style={styles.yearText}>{month}月</Text>
+                <Ionicons name="chevron-down" size={14} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View style={styles.headerBtn} />
@@ -134,36 +169,91 @@ export default function BillStatisticsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-        {/* 年度汇总卡片 */}
+        {/* 汇总卡片 */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryBgIcon}>
             <Text style={styles.summaryBgSymbol}>¥</Text>
           </View>
-          <Text style={styles.summaryLabel}>{viewMode === 'month' ? '月结余' : '年结余'}</Text>
-          <Text style={[styles.summaryBalance, yearBalance < 0 && styles.summaryNegative]}>
-            ¥{formatAmount(Math.abs(yearBalance))}
-            {yearBalance < 0 && <Text style={styles.overdraft}> (超支)</Text>}
+          <Text style={styles.summaryLabel}>
+            {viewMode === 'month' ? `${month}月结余` : '年结余'}
+          </Text>
+          <Text style={[styles.summaryBalance, (viewMode === 'month' ? monthBalance : yearBalance) < 0 && styles.summaryNegative]}>
+            ¥{formatAmount(Math.abs(viewMode === 'month' ? monthBalance : yearBalance))}
+            {(viewMode === 'month' ? monthBalance : yearBalance) < 0 && <Text style={styles.overdraft}> (超支)</Text>}
           </Text>
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryItemLabel}>年收入</Text>
+              <Text style={styles.summaryItemLabel}>{viewMode === 'month' ? '月收入' : '年收入'}</Text>
               <Text style={[styles.summaryItemValue, { color: COLORS.income }]}>
-                ¥{formatAmount(yearIncome)}
+                ¥{formatAmount(viewMode === 'month' ? monthIncome : yearIncome)}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryItemLabel}>年支出</Text>
+              <Text style={styles.summaryItemLabel}>{viewMode === 'month' ? '月支出' : '年支出'}</Text>
               <Text style={[styles.summaryItemValue, { color: COLORS.expense }]}>
-                ¥{formatAmount(yearExpense)}
+                ¥{formatAmount(viewMode === 'month' ? monthExpense : yearExpense)}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* 月度账单列表 */}
+        {/* 月账单详情 - 显示当月分类/每日数据 */}
         {viewMode === 'month' && (
+          <View style={styles.billCard}>
+            <View style={styles.monthHeader}>
+              <Text style={styles.monthHeaderTitle}>{year}年{month}月</Text>
+              <Text style={styles.monthHeaderSub}>
+                共 {monthlyData[month - 1] ? (monthlyData[month - 1].income > 0 || monthlyData[month - 1].expense > 0 ? '有记账' : '无记账') : '无记账'}
+              </Text>
+            </View>
+
+            {monthIncome === 0 && monthExpense === 0 ? (
+              <View style={styles.emptyBlock}>
+                <Ionicons name="calendar-outline" size={48} color={COLORS.textLight} />
+                <Text style={styles.emptyText}>本月暂无账单记录</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>日均支出</Text>
+                  <Text style={styles.detailValue}>
+                    ¥{formatAmount(monthExpense / new Date(year, month, 0).getDate())}
+                  </Text>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>本月结余</Text>
+                  <Text style={[styles.detailValue, { color: monthBalance >= 0 ? COLORS.income : COLORS.danger }]}>
+                    ¥{formatAmount(Math.abs(monthBalance))}
+                  </Text>
+                </View>
+                <View style={styles.detailDivider} />
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>支出/收入比</Text>
+                  <Text style={styles.detailValue}>
+                    {monthIncome > 0 ? (monthExpense / monthIncome * 100).toFixed(1) : 0}%
+                  </Text>
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={styles.viewDetailBtn}
+              onPress={() => navigation.navigate('MainTabs', {
+                screen: 'Home',
+                params: { year, month },
+              })}
+            >
+              <Text style={styles.viewDetailText}>查看本月明细</Text>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 年账单视图 - 显示 1-12 月表格 */}
+        {viewMode === 'year' && (
           <View style={styles.billCard}>
             {/* 表头 */}
             <View style={styles.tableHeader}>
@@ -180,10 +270,10 @@ export default function BillStatisticsScreen() {
                 key={item.month}
                 style={styles.tableRow}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('MainTabs', {
-                  screen: 'Home',
-                  params: { year, month: item.month },
-                })}
+                onPress={() => {
+                  setMonth(item.month);
+                  setViewMode('month');
+                }}
               >
                 <Text style={[styles.tdCell, styles.tdMonth]}>{item.month}月</Text>
                 <Text style={[styles.tdCell, styles.tdMoney, { color: COLORS.income }]}>
@@ -200,39 +290,6 @@ export default function BillStatisticsScreen() {
                 <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} style={styles.tdArrow} />
               </TouchableOpacity>
             ))}
-          </View>
-        )}
-
-        {/* 年账单视图 — 简化为只显示汇总 */}
-        {viewMode === 'year' && (
-          <View style={styles.billCard}>
-            <View style={styles.yearDetailRow}>
-              <Text style={styles.yearDetailLabel}>全年总收入</Text>
-              <Text style={[styles.yearDetailValue, { color: COLORS.income }]}>
-                ¥{formatAmount(yearIncome)}
-              </Text>
-            </View>
-            <View style={styles.yearDetailDivider} />
-            <View style={styles.yearDetailRow}>
-              <Text style={styles.yearDetailLabel}>全年总支出</Text>
-              <Text style={[styles.yearDetailValue, { color: COLORS.expense }]}>
-                ¥{formatAmount(yearExpense)}
-              </Text>
-            </View>
-            <View style={styles.yearDetailDivider} />
-            <View style={styles.yearDetailRow}>
-              <Text style={styles.yearDetailLabel}>全年结余</Text>
-              <Text style={[styles.yearDetailValue, { color: yearBalance >= 0 ? COLORS.income : COLORS.danger }]}>
-                ¥{formatAmount(Math.abs(yearBalance))}
-              </Text>
-            </View>
-            <View style={styles.yearDetailDivider} />
-            <View style={styles.yearDetailRow}>
-              <Text style={styles.yearDetailLabel}>月均支出</Text>
-              <Text style={styles.yearDetailValue}>
-                ¥{formatAmount(yearExpense / 12)}
-              </Text>
-            </View>
           </View>
         )}
 
@@ -261,6 +318,29 @@ export default function BillStatisticsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* 月份下拉选择 */}
+      <Modal visible={showMonthPicker} transparent animationType="fade" onRequestClose={closeMonthPicker}>
+        <TouchableOpacity style={styles.yearOverlay} activeOpacity={1} onPress={closeMonthPicker}>
+          <View style={styles.yearDropdown} onStartShouldSetResponder={() => true}>
+            <Text style={styles.yearDropdownTitle}>选择月份</Text>
+            <ScrollView style={styles.yearList} showsVerticalScrollIndicator={false}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.yearItem, m === month && styles.yearItemActive]}
+                  onPress={() => { setMonth(m); closeMonthPicker(); }}
+                >
+                  <Text style={[styles.yearItemText, m === month && styles.yearItemTextActive]}>
+                    {m}月
+                  </Text>
+                  {m === month && <Ionicons name="checkmark" size={18} color={COLORS.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -279,6 +359,7 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 40, alignItems: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
+  headerSelectors: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   yearSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,7 +388,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, color: COLORS.textSecondary },
   tabTextActive: { color: '#fff', fontWeight: '600' },
 
-  // 年度汇总卡片
+  // 汇总卡片
   summaryCard: {
     backgroundColor: COLORS.primary,
     margin: 16,
@@ -336,13 +417,48 @@ const styles = StyleSheet.create({
   summaryItemValue: { fontSize: 18, fontWeight: '600', color: COLORS.text },
   summaryDivider: { width: 1, height: 30, backgroundColor: 'rgba(0,0,0,0.1)', marginHorizontal: 16 },
 
-  // 月度账单表格
+  // 月账单详情卡
   billCard: {
     backgroundColor: COLORS.surface,
     marginHorizontal: 16,
     borderRadius: 12,
     overflow: 'hidden',
   },
+  monthHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.divider,
+  },
+  monthHeaderTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  monthHeaderSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
+  emptyBlock: { paddingVertical: 40, alignItems: 'center', gap: 8 },
+  emptyText: { fontSize: 14, color: COLORS.textLight },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  detailLabel: { fontSize: 14, color: COLORS.text },
+  detailValue: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+  detailDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: COLORS.divider,
+    marginHorizontal: 20,
+  },
+  viewDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    backgroundColor: COLORS.background,
+    gap: 4,
+  },
+  viewDetailText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
+
+  // 年账单表格
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -368,22 +484,6 @@ const styles = StyleSheet.create({
   tdMonth: { width: 50, fontWeight: '500' },
   tdMoney: { flex: 1, textAlign: 'right', fontSize: 13 },
   tdArrow: { width: 20, textAlign: 'center' },
-
-  // 年账单详情
-  yearDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  yearDetailLabel: { fontSize: 15, color: COLORS.text },
-  yearDetailValue: { fontSize: 16, fontWeight: '600', color: COLORS.text },
-  yearDetailDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: COLORS.divider,
-    marginHorizontal: 20,
-  },
 
   // 年份下拉
   yearOverlay: {
