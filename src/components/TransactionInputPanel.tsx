@@ -202,7 +202,7 @@ export default function TransactionInputPanel({
           {
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [0, 280],
+              outputRange: [50 + (insetsBottom || 0), 280 + (insetsBottom || 0)],
             }),
             backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({
@@ -269,6 +269,8 @@ export default function TransactionInputPanel({
                 )}
               </View>
             </View>
+            {/* 底部安全区域：适配虚拟按键 */}
+            <View style={{ height: insetsBottom || 0, backgroundColor: '#FFFFFF' }} />
           </>
         )}
       </Animated.View>
@@ -383,6 +385,11 @@ const styles = StyleSheet.create({
 
   // 键盘
   keyboard: { backgroundColor: '#ECECEC', paddingBottom: 0 },
+  // 键盘底部安全区域撑高
+  keyboardSafeArea: {
+    backgroundColor: '#FFFFFF',
+    height: 0,
+  },
   keyboardSwitchBar: {
     height: 80,
     backgroundColor: '#FFFFFF',
