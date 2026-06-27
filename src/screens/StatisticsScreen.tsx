@@ -228,7 +228,7 @@ function MiniDonut({ data, total }: { data: CategorySummary[]; total: number }) 
   return (
     <View style={styles.donutWrap}>
       <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-        <G rotation="-90" origin={`${CIRCLE_SIZE / 2}, ${CIRCLE_SIZE / 2}`}>
+        <G rotation="-90" originX={CIRCLE_SIZE / 2} originY={CIRCLE_SIZE / 2}>
           <Circle
             cx={CIRCLE_SIZE / 2}
             cy={CIRCLE_SIZE / 2}
