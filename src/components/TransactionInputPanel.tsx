@@ -202,22 +202,19 @@ export default function TransactionInputPanel({
           {
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [80, 280],
+              outputRange: [0, 280],
             }),
             backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [0.6, 1],
+              outputRange: [0, 1],
             }),
             overflow: 'hidden',
             pointerEvents: 'auto',
           },
         ]}
       >
-        {noteFocused ? (
-          // 备注聚焦时：显示空白条
-          <View style={styles.keyboardSwitchBar} />
-        ) : (
+        {noteFocused ? null : (
           // 完整数字键盘
           <>
             <View style={styles.opRow}>
