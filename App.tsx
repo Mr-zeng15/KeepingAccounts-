@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AlertProvider } from './src/components/AlertProvider';
 import { COLORS } from './src/utils/constants';
+import { getDatabase, resetDatabase } from './src/db/database';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -37,16 +38,32 @@ class ErrorBoundary extends React.Component<
 export default function App() {
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const initApp = async () => {
     try {
+      setLoading(true);
+      setInitError(null);
+      await getDatabase();
       setReady(true);
     } catch (e: any) {
+      console.error('Database init failed:', e);
       setInitError(e.message || String(e));
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    initApp();
   }, []);
 
-  if (!ready && !initError) {
+  const handleRetry = async () => {
+    await resetDatabase();
+    await initApp();
+  };
+
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>加载中...</Text>
@@ -59,6 +76,9 @@ export default function App() {
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>初始化失败</Text>
         <Text style={styles.errorMessage}>{initError}</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+          <Text style={styles.retryBtnText}>重试</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -106,12 +126,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.text,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   errorStack: {
     fontSize: 11,
     color: COLORS.textSecondary,
     textAlign: 'left',
     fontFamily: 'monospace',
+  },
+  retryBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
   },
 });

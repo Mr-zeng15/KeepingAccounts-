@@ -1,12 +1,41 @@
 import * as SQLite from 'expo-sqlite';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let initPromise: Promise<void> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (db) return db;
-  db = await SQLite.openDatabaseAsync('bookkeeping.db');
-  await initDatabase(db);
+  if (db) {
+    try {
+      await db.getFirstAsync('SELECT 1');
+      return db;
+    } catch {
+      db = null;
+    }
+  }
+
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        db = await SQLite.openDatabaseAsync('bookkeeping.db');
+        await initDatabase(db);
+      } catch (e) {
+        console.error('Database initialization failed:', e);
+        db = null;
+        throw e;
+      }
+    })();
+  }
+
+  await initPromise;
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
   return db;
+}
+
+export async function resetDatabase(): Promise<void> {
+  db = null;
+  initPromise = null;
 }
 
 async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {

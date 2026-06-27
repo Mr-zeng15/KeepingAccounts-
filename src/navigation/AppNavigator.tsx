@@ -41,6 +41,9 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} activeOpacity={0.7} style={styles.tabBtn} />
+          ),
         }}
       />
       <Tab.Screen
@@ -50,6 +53,9 @@ function HomeTabs() {
           tabBarLabel: '图表',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={22} color={color} />
+          ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} activeOpacity={0.7} style={styles.tabBtn} />
           ),
         }}
       />
@@ -82,6 +88,9 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'mic' : 'mic-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} activeOpacity={0.7} style={styles.tabBtn} />
+          ),
         }}
       />
       <Tab.Screen
@@ -91,6 +100,9 @@ function HomeTabs() {
           tabBarLabel: '我的',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+          ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} activeOpacity={0.7} style={styles.tabBtn} />
           ),
         }}
       />
@@ -145,6 +157,11 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.divider,
   },
   tabLabel: { fontSize: 10, marginTop: -1, fontWeight: '600' },
+  tabBtn: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   centerBtnWrap: {
     top: -20,
     justifyContent: 'center',

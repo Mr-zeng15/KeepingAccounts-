@@ -60,6 +60,7 @@ export default function AddTransactionScreen() {
   // 备注聚焦过渡动画
   const keyboardAnim = useRef(new Animated.Value(1)).current;   // 1=键盘可见, 0=键盘隐藏
   const overlayAnim = useRef(new Animated.Value(0)).current;    // 0=遮罩隐藏, 1=遮罩可见
+  const inputPanelAnim = useRef(new Animated.Value(0)).current; // 输入面板向上偏移动画
 
   // 记录键盘高度，用于备注聚焦时压缩分类网格；键盘收起后恢复自定义键盘
   useEffect(() => {
@@ -68,12 +69,23 @@ export default function AddTransactionScreen() {
 
     const showSub = Keyboard.addListener(showEvent, (event: any) => {
       const h = event?.endCoordinates?.height;
-      if (typeof h === 'number') setKeyboardHeight(h);
+      if (typeof h === 'number') {
+        setKeyboardHeight(h);
+        Animated.timing(inputPanelAnim, {
+          toValue: -h,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
       if (dismissTimerRef.current) { clearTimeout(dismissTimerRef.current); dismissTimerRef.current = null; }
       setKeyboardHeight(0);
-      // 延迟重置 noteFocused，避免与 onFocus 冲突导致第一次点击无法弹出键盘
+      Animated.timing(inputPanelAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
       setTimeout(() => {
         setNoteFocused(false);
       }, 100);
@@ -461,13 +473,10 @@ export default function AddTransactionScreen() {
         <View style={styles.cancelBtn} />
       </View>
 
-      {/* 分类网格 — 上方区域，备注聚焦时压缩高度确保标签栏可见 */}
+      {/* 分类网格 — 上方区域，自然填充剩余空间 */}
       <Animated.View
         style={[
           styles.categoryGrid,
-          noteFocused && keyboardHeight > 0 && {
-            maxHeight: Math.max(80, windowHeight - keyboardHeight - 320),
-          },
           {
             opacity: overlayAnim.interpolate({
               inputRange: [0, 1],
@@ -510,36 +519,38 @@ export default function AddTransactionScreen() {
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismissNote} />
       </Animated.View>
 
-      {/* 记账输入面板 — 选中分类后才显示 */}
+      {/* 记账输入面板 — 固定在底部，选中分类后才显示 */}
       {categoryId && (
-        <TransactionInputPanel
-          amount={amount}
-          onAmountChange={setAmount}
-          note={note}
-          onNoteChange={setNote}
-          date={date}
-          isToday={isToday}
-          onDatePress={() => setShowDatePicker(true)}
-          frequentNotes={frequentNotes}
-          prevValue={prevValue}
-          pendingOp={pendingOp}
-          freshOp={freshOp}
-          onKey={handleKey}
-          onOp={handleOp}
-          onEquals={handleEquals}
-          onSave={handleSave}
-          onBatchSave={handleBatchSave}
-          buildHint={buildHint}
-          amountScale={amountScale}
-          keyboardAnim={keyboardAnim}
-          overlayAnim={overlayAnim}
-          noteFocused={noteFocused}
-          onNoteFocus={() => setNoteFocused(true)}
-          onNoteBlur={() => setNoteFocused(false)}
-          dismissNote={dismissNote}
-          keyboardHeight={keyboardHeight}
-          insetsBottom={insets.bottom}
-        />
+        <Animated.View style={[styles.inputPanelWrapper, { transform: [{ translateY: inputPanelAnim }], paddingBottom: insets.bottom }]}>
+          <TransactionInputPanel
+            amount={amount}
+            onAmountChange={setAmount}
+            note={note}
+            onNoteChange={setNote}
+            date={date}
+            isToday={isToday}
+            onDatePress={() => setShowDatePicker(true)}
+            frequentNotes={frequentNotes}
+            prevValue={prevValue}
+            pendingOp={pendingOp}
+            freshOp={freshOp}
+            onKey={handleKey}
+            onOp={handleOp}
+            onEquals={handleEquals}
+            onSave={handleSave}
+            onBatchSave={handleBatchSave}
+            buildHint={buildHint}
+            amountScale={amountScale}
+            keyboardAnim={keyboardAnim}
+            overlayAnim={overlayAnim}
+            noteFocused={noteFocused}
+            onNoteFocus={() => setNoteFocused(true)}
+            onNoteBlur={() => setNoteFocused(false)}
+            dismissNote={dismissNote}
+            keyboardHeight={keyboardHeight}
+            insetsBottom={insets.bottom}
+          />
+        </Animated.View>
       )}
 
       {/* 日期滚轮选择器 — 条件渲染避免 hidden Modal 的 aria-hidden 冲突 */}
@@ -619,5 +630,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.01)',
     zIndex: 1,
+  },
+
+  // 输入面板包装器 — 固定在底部
+  inputPanelWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });

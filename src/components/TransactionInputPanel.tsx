@@ -202,9 +202,8 @@ export default function TransactionInputPanel({
           {
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [50, 280 + (insetsBottom || 0)],
+              outputRange: [80, 280],
             }),
-            paddingBottom: insetsBottom || 0,
             backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({
               inputRange: [0, 1],
@@ -386,9 +385,9 @@ const styles = StyleSheet.create({
   recommendTextActive: { color: '#fff', fontWeight: '600' },
 
   // 键盘
-  keyboard: { backgroundColor: '#ECECEC' },
+  keyboard: { backgroundColor: '#ECECEC', paddingBottom: 0 },
   keyboardSwitchBar: {
-    height: 50,
+    height: 80,
     backgroundColor: '#FFFFFF',
   },
   opRow: {
@@ -449,20 +448,20 @@ const styles = StyleSheet.create({
   tagBar: {
     backgroundColor: '#F5F5F5',
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.divider,
   },
-  tagContent: { gap: 8, alignItems: 'center' },
+  tagContent: { gap: 6, alignItems: 'center' },
   tagChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
     backgroundColor: '#E0E0E0',
   },
   tagChipActive: {
     backgroundColor: COLORS.primary,
   },
-  tagText: { fontSize: 13, color: COLORS.textSecondary },
+  tagText: { fontSize: 11, color: COLORS.textSecondary },
   tagTextActive: { color: '#fff', fontWeight: '600' },
 });
