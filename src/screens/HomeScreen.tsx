@@ -25,7 +25,7 @@ interface DayGroup {
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-const MONTH_ITEM_HEIGHT = 46;
+const MONTH_ITEM_HEIGHT = 42;
 
 function getWeekday(d: string) { return WEEKDAYS[new Date(d).getDay()]; }
 
@@ -75,7 +75,7 @@ export default function HomeScreen() {
     if (!showDatePicker || selectedMonthIndex < 0) return;
     const timer = setTimeout(() => {
       monthListRef.current?.scrollTo({
-        y: Math.max(selectedMonthIndex * MONTH_ITEM_HEIGHT - MONTH_ITEM_HEIGHT * 3, 0),
+        y: Math.max(selectedMonthIndex * MONTH_ITEM_HEIGHT - MONTH_ITEM_HEIGHT * 2, 0),
         animated: false,
       });
     }, 50);
@@ -195,20 +195,20 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.summaryRow}>
-          <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>收入</Text>
-            <Text style={styles.summaryVal}>{renderSummaryAmount(summary.income)}</Text>
-          </View>
-          <View style={styles.summarySep} />
-          <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>支出</Text>
-            <Text style={styles.summaryVal}>{renderSummaryAmount(summary.expense)}</Text>
-          </View>
-          <View style={styles.summarySep} />
-          <View style={styles.summaryCol}>
-            <Text style={styles.summaryLabel}>结余</Text>
-            <Text style={styles.summaryVal}>{renderSummaryAmount(summary.income - summary.expense)}</Text>
-          </View>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>收入</Text>
+              <Text style={styles.summaryVal}>{renderSummaryAmount(summary.income)}</Text>
+            </View>
+            <View style={styles.summarySep} />
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>支出</Text>
+              <Text style={styles.summaryVal}>{renderSummaryAmount(summary.expense)}</Text>
+            </View>
+            <View style={styles.summarySep} />
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>结余</Text>
+              <Text style={styles.summaryVal}>{renderSummaryAmount(summary.income - summary.expense)}</Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
@@ -217,7 +217,7 @@ export default function HomeScreen() {
         {[
           { icon: 'paw-outline', label: '账单', screen: 'BillStatistics' },
           { icon: 'wallet-outline', label: '预算', screen: 'Budget' },
-          { icon: 'briefcase-outline', label: '资产', screen: null },
+          { icon: 'calendar-outline', label: '日历', screen: 'Calendar' },
           { icon: 'stats-chart-outline', label: '统计', screen: 'Statistics' },
         ].map((item) => (
           <TouchableOpacity
