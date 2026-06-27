@@ -1,3 +1,7 @@
+// ⚠️ 关键代码锁（受 PROJECT_NOTES.md #1 + #4 保护 - Lock-2）
+// 1. Tab 配置禁止修改，否则会强制跳转到明细页
+// 2. Tab Bar 必须使用自定义 tabBarButton，禁用涟漪效果
+// 禁止修改：除非更新 PROJECT_NOTES.md 并记录原因
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

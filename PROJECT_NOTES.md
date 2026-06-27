@@ -290,6 +290,67 @@ src/
 
 ---
 
+## 🔒 代码锁规则
+
+为了防止以前修复过的 bug 再次出现，对关键代码做"锁"标记。
+
+### 锁标记规范
+
+**文件内标记**（必填）：
+```typescript
+// ⚠️ 关键代码锁（受 PROJECT_NOTES.md #N 保护）
+// 问题描述：xxx
+// 参考提交：<commit-hash>
+// 禁止修改：除非更新 PROJECT_NOTES.md 并记录原因
+// DO NOT REMOVE THE xxx OFFSET
+```
+
+**AI 行为约束**：
+- 看到 ⚠️ 标记时，必须先阅读对应的 PROJECT_NOTES 条目
+- 禁止移除锁标记，禁止简化锁保护的代码
+- 如果需要修改，必须先在本文件更新"修改原因"
+
+### 当前已锁代码清单
+
+| 编号 | 文件 | 锁内容 | 对应 Bug |
+|------|------|--------|----------|
+| Lock-1 | [src/components/TransactionInputPanel.tsx:208-211](src/components/TransactionInputPanel.tsx#L208-L211) | 数字键盘高度必须包含 `insetsBottom` | #3 虚拟按键遮挡记账菜单 |
+| Lock-2 | [src/navigation/AppNavigator.tsx](src/navigation/AppNavigator.tsx) | Tab 配置和 `tabBarButton` 实现 | #1 Tab 导航强制跳转明细页 |
+| Lock-3 | [src/db/database.ts:6-34](src/db/database.ts#L6-L34) | 数据库连接有效性检查 | #2 数据库 VFS 状态错误 |
+| Lock-4 | [src/screens/AddTransactionScreen.tsx:30-90](src/screens/AddTransactionScreen.tsx#L30-L90) | 键盘/面板动画值管理 | #7 键盘弹出遮挡输入框 |
+
+### 新增锁流程
+
+1. 修复一个 bug 后，立即在本文件登记"修复方案"
+2. 在对应代码处加 ⚠️ 锁标记
+3. 提交时 commit message 包含 `[lock-N]`
+4. 在锁清单中追加条目
+
+### 锁解除流程
+
+只在以下情况可以解除锁：
+- 该问题确认已被新方案彻底解决
+- 锁定代码段被完全重构，新代码不再涉及原问题
+- 解除时必须更新本文件 + 删除代码标记 + 记录原因
+
+---
+
+
+## 📌 快速参考卡
+
+修改以下代码前请**先**查看对应的 PROJECT_NOTES 条目：
+
+| 想要修改... | 必须先查看 | 锁 ID |
+|------------|-----------|--------|
+| 数字键盘/输入面板 | [PROJECT_NOTES.md #3](PROJECT_NOTES.md#3-虚拟按键遮挡记账菜单) | Lock-1 |
+| Tab 导航、TabBarButton、涟漪 | [PROJECT_NOTES.md #1 + #4](PROJECT_NOTES.md) | Lock-2 |
+| 数据库连接、初始化 | [PROJECT_NOTES.md #2](PROJECT_NOTES.md#2-数据库-vfs-状态错误导致白屏) | Lock-3 |
+| 键盘动画、键盘弹出逻辑 | [PROJECT_NOTES.md #7](PROJECT_NOTES.md#7-键盘弹出遮挡输入框) | Lock-4 |
+
+> **重要**：代码中的 ⚠️ 标记比本文档优先级更高，看到标记请先阅读注释。
+
+---
+
 ## 推荐做法
 
 1. ✅ 修改导航配置前，先在开发模式下测试所有 Tab 的切换功能
