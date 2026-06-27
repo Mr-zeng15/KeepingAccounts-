@@ -200,15 +200,16 @@ export default function TransactionInputPanel({
         style={[
           styles.keyboard,
           {
-            // ⚠️ 关键代码锁（受 PROJECT_NOTES.md #3 保护）
-            // 键盘高度必须包含 insetsBottom，否则会被 Android 虚拟按键遮挡
-            // 参考提交：8b4990d feat: 键盘底部添加安全区域适配虚拟按键
+            // ⚠️ 关键代码锁（受 PROJECT_NOTES.md #3 保护 - Lock-1）
+            // 参考提交 8b4990d v1.1.2 原始修复
+            // 收起状态用 50（不加 insets），展开状态 +insets.bottom
+            // 必须有 paddingBottom: insets.bottom 让虚拟按键区域为白底
             // 禁止修改：除非更新 PROJECT_NOTES.md 并记录原因
-            // DO NOT REMOVE THE insetsBottom OFFSET
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [50 + (insetsBottom || 0), 280 + (insetsBottom || 0)],
+              outputRange: [50, 280 + (insetsBottom || 0)],
             }),
+            paddingBottom: insetsBottom || 0,
             backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({
               inputRange: [0, 1],
