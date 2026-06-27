@@ -196,7 +196,10 @@ export class ImportExportService {
     }
 
     const file = new File(result.assets[0].uri);
-    let fileContent = await file.text();
+    const base64Content = await file.readAsStringAsync({ encoding: 'base64' });
+
+    const bytes = this.base64ToBytes(base64Content);
+    const fileContent = this.detectAndConvertEncoding(bytes);
 
     if (fileContent.charCodeAt(0) === 0xFEFF) {
       fileContent = fileContent.slice(1);
@@ -241,25 +244,39 @@ export class ImportExportService {
     };
 
     const headerLine = lines[0];
-    const headers = parseCsvLine(headerLine).map(h => h.trim().toLowerCase());
+    const headers = parseCsvLine(headerLine).map(h => h.trim());
 
     const findCol = (names: string[]): number => {
       for (const name of names) {
-        const idx = headers.indexOf(name.toLowerCase());
+        const idx = headers.findIndex(h =>
+          h.toLowerCase().includes(name.toLowerCase()) ||
+          name.toLowerCase().includes(h.toLowerCase())
+        );
         if (idx !== -1) return idx;
       }
       return -1;
     };
 
-    const dateCol = findCol(['日期', 'date', '交易日期', '时间', '记账日期']);
-    const typeCol = findCol(['类型', 'type', '收支类型', '收支', '收入支出']);
-    const categoryCol = findCol(['分类', 'category', '类别', '账目分类', '一级分类']);
-    const subCategoryCol = findCol(['子分类', '二级分类', '详细分类']);
-    const amountCol = findCol(['金额', 'amount', '支出金额', '收入金额', '价格', '费用']);
-    const noteCol = findCol(['备注', 'note', '说明', '描述', '备注信息', '详情']);
+    const dateCol = findCol(['日期', 'date', '交易日期', '时间', '记账日期', '发生日期', '交易时间', '入账日期', '消费日期']);
+    const typeCol = findCol(['类型', 'type', '收支类型', '收支', '收入支出', '账户类型', '交易类型']);
+    const categoryCol = findCol(['分类', 'category', '类别', '账目分类', '一级分类', '支出分类', '收入分类', '项目', '标签']);
+    const subCategoryCol = findCol(['子分类', '二级分类', '详细分类', '分类明细']);
+    const amountCol = findCol(['金额', 'amount', '支出金额', '收入金额', '价格', '费用', '支出', '收入', '消费金额']);
+    const noteCol = findCol(['备注', 'note', '说明', '描述', '备注信息', '详情', '摘要', '事由', '内容']);
 
-    if (dateCol === -1 || amountCol === -1) {
-      throw new Error('CSV 格式不兼容：缺少必要的日期或金额列');
+    if (dateCol === -1) {
+      throw new Error('CSV 格式不兼容：找不到日期列（支持的列名：日期、date、交易日期等）');
+    }
+
+    if (amountCol === -1) {
+      const hasExpenseCol = findCol(['支出']);
+      const hasIncomeCol = findCol(['收入']);
+      if (hasExpenseCol !== -1 || hasIncomeCol !== -1) {
+        const expenseCol = hasExpenseCol;
+        const incomeCol = hasIncomeCol;
+        return this.importFromCsvWithSeparateAmounts(bookId, lines, headers, dateCol, typeCol, categoryCol, subCategoryCol, expenseCol, incomeCol, noteCol, categoryMap);
+      }
+      throw new Error('CSV 格式不兼容：找不到金额列（支持的列名：金额、amount、支出金额、收入金额等）');
     }
 
     let imported = 0;
@@ -306,8 +323,14 @@ export class ImportExportService {
         const [, y, m, d] = dateMatch;
         dateStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
       } else {
-        skipped++;
-        continue;
+        const dateMatch2 = dateStr.match(/(\d{4})(\d{2})(\d{2})/);
+        if (dateMatch2) {
+          const [, y, m, d] = dateMatch2;
+          dateStr = `${y}-${m}-${d}`;
+        } else {
+          skipped++;
+          continue;
+        }
       }
 
       const amount = parseFloat(amountStr.replace(/[^\d.]/g, ''));
@@ -320,6 +343,10 @@ export class ImportExportService {
         if (matchedCategory) {
           categoryId = categoryMap.get(matchedCategory);
         }
+      }
+
+      if (!categoryId) {
+        categoryId = categoryMap.get('其他') ?? categoryMap.get('其它') ?? Array.from(categoryMap.values()).find(id => id > 0);
       }
 
       if (!categoryId || isNaN(amount) || amount <= 0) {
@@ -335,5 +362,251 @@ export class ImportExportService {
     }
 
     return { imported, skipped };
+  }
+
+  private static async importFromCsvWithSeparateAmounts(
+    bookId: number,
+    lines: string[],
+    headers: string[],
+    dateCol: number,
+    typeCol: number,
+    categoryCol: number,
+    subCategoryCol: number,
+    expenseCol: number,
+    incomeCol: number,
+    noteCol: number,
+    categoryMap: Map<string, number>
+  ): Promise<{ imported: number; skipped: number }> {
+    const db = await getDatabase();
+    let imported = 0;
+    let skipped = 0;
+
+    const parseCsvLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result;
+    };
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+
+      const values = parseCsvLine(line);
+
+      let dateStr = values[dateCol]?.trim() || '';
+      let typeLabel = typeCol >= 0 ? values[typeCol]?.trim() : '';
+      let categoryName = categoryCol >= 0 ? values[categoryCol]?.trim() : '';
+      const subCategoryName = subCategoryCol >= 0 ? values[subCategoryCol]?.trim() : '';
+      const expenseStr = expenseCol >= 0 ? values[expenseCol]?.trim() || '' : '';
+      const incomeStr = incomeCol >= 0 ? values[incomeCol]?.trim() || '' : '';
+      const note = noteCol >= 0 ? values[noteCol]?.trim() : '';
+
+      if (subCategoryName && !categoryMap.has(categoryName) && categoryMap.has(subCategoryName)) {
+        categoryName = subCategoryName;
+      }
+
+      const expenseAmount = parseFloat(expenseStr.replace(/[^\d.]/g, ''));
+      const incomeAmount = parseFloat(incomeStr.replace(/[^\d.]/g, ''));
+
+      let type = '';
+      let amount = 0;
+
+      if (typeLabel) {
+        if (typeLabel.includes('收入') || typeLabel.toLowerCase().includes('income')) {
+          type = 'income';
+          amount = incomeAmount || expenseAmount;
+        } else if (typeLabel.includes('支出') || typeLabel.toLowerCase().includes('expense')) {
+          type = 'expense';
+          amount = expenseAmount || incomeAmount;
+        }
+      }
+
+      if (!type) {
+        if (expenseAmount > 0 && incomeAmount <= 0) {
+          type = 'expense';
+          amount = expenseAmount;
+        } else if (incomeAmount > 0 && expenseAmount <= 0) {
+          type = 'income';
+          amount = incomeAmount;
+        }
+      }
+
+      if (!type || amount <= 0) {
+        skipped++;
+        continue;
+      }
+
+      const dateMatch = dateStr.match(/(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})/);
+      if (dateMatch) {
+        const [, y, m, d] = dateMatch;
+        dateStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      } else {
+        skipped++;
+        continue;
+      }
+
+      let categoryId = categoryMap.get(categoryName);
+      if (!categoryId) {
+        const matchedCategory = Array.from(categoryMap.keys()).find(
+          key => key.includes(categoryName) || categoryName.includes(key)
+        );
+        if (matchedCategory) {
+          categoryId = categoryMap.get(matchedCategory);
+        }
+      }
+
+      if (!categoryId) {
+        categoryId = categoryMap.get('其他') ?? categoryMap.get('其它') ?? Array.from(categoryMap.values()).find(id => id > 0);
+      }
+
+      if (!categoryId) {
+        skipped++;
+        continue;
+      }
+
+      await db.runAsync(
+        'INSERT INTO transactions (book_id, category_id, amount, type, note, date) VALUES (?, ?, ?, ?, ?, ?)',
+        [bookId, categoryId, amount, type, note, dateStr]
+      );
+      imported++;
+    }
+
+    return { imported, skipped };
+  }
+
+  private static base64ToBytes(base64: string): number[] {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const bytes: number[] = [];
+    let i = 0;
+
+    while (i < base64.length) {
+      const c1 = chars.indexOf(base64[i++]);
+      const c2 = chars.indexOf(base64[i++]);
+      const c3 = chars.indexOf(base64[i++]);
+      const c4 = chars.indexOf(base64[i++]);
+
+      const b1 = (c1 << 2) | (c2 >> 4);
+      const b2 = ((c2 & 15) << 4) | (c3 >> 2);
+      const b3 = ((c3 & 3) << 6) | c4;
+
+      bytes.push(b1);
+      if (c3 !== 64) bytes.push(b2);
+      if (c4 !== 64) bytes.push(b3);
+    }
+
+    return bytes;
+  }
+
+  private static detectAndConvertEncoding(bytes: number[]): string {
+    let isUtf8 = true;
+    let hasGbkPattern = false;
+
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+      if (b >= 0x80) {
+        if (b >= 0xF8) {
+          isUtf8 = false;
+          break;
+        }
+        if ((b & 0xE0) === 0xC0) {
+          if (i + 1 >= bytes.length) { isUtf8 = false; break; }
+          const b2 = bytes[i + 1];
+          if ((b2 & 0xC0) !== 0x80) { isUtf8 = false; break; }
+          i++;
+        } else if ((b & 0xF0) === 0xE0) {
+          if (i + 2 >= bytes.length) { isUtf8 = false; break; }
+          const b2 = bytes[i + 1];
+          const b3 = bytes[i + 2];
+          if ((b2 & 0xC0) !== 0x80 || (b3 & 0xC0) !== 0x80) { isUtf8 = false; break; }
+          i += 2;
+        } else if ((b & 0xF8) === 0xF0) {
+          if (i + 3 >= bytes.length) { isUtf8 = false; break; }
+          const b2 = bytes[i + 1];
+          const b3 = bytes[i + 2];
+          const b4 = bytes[i + 3];
+          if ((b2 & 0xC0) !== 0x80 || (b3 & 0xC0) !== 0x80 || (b4 & 0xC0) !== 0x80) { isUtf8 = false; break; }
+          i += 3;
+        } else {
+          isUtf8 = false;
+          hasGbkPattern = true;
+          break;
+        }
+      }
+    }
+
+    if (!isUtf8 && hasGbkPattern) {
+      return this.gbkToUtf8(bytes);
+    }
+
+    return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+  }
+
+  private static gbkToUtf8(bytes: number[]): string {
+    const result: number[] = [];
+
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+
+      if (b < 0x80) {
+        result.push(b);
+        continue;
+      }
+
+      if (i + 1 >= bytes.length) {
+        result.push(0xFFFD);
+        continue;
+      }
+
+      const b2 = bytes[i + 1];
+      let code = 0;
+
+      if (b >= 0x81 && b <= 0xFE && b2 >= 0x40 && b2 <= 0xFE) {
+        if (b <= 0xA0) {
+          code = (b - 0x81) * 190 + (b2 - 0x40);
+        } else {
+          code = (b - 0xA1) * 190 + (b2 - 0x40);
+        }
+
+        if (code < 0) {
+          result.push(0xFFFD);
+        } else if (code < 0x100) {
+          result.push(0x00 + code);
+        } else if (code < 0x4E00) {
+          result.push(0xFFFD);
+        } else {
+          const charCode = 0x4E00 + code - 0x100;
+          if (charCode <= 0xFFFF) {
+            result.push(charCode);
+          } else {
+            const high = Math.floor((charCode - 0x10000) / 0x400) + 0xD800;
+            const low = ((charCode - 0x10000) % 0x400) + 0xDC00;
+            result.push(high, low);
+          }
+        }
+        i++;
+      } else {
+        result.push(0xFFFD);
+      }
+    }
+
+    return String.fromCodePoint(...result);
   }
 }
