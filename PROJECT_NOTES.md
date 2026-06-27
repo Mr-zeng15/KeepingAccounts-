@@ -100,17 +100,20 @@ height: keyboardAnim.interpolate({
 
 **问题描述：** Android 设备上点击底部 Tab 按钮会出现圆形涟漪效果（Ripple），不符合设计需求。
 
-**原因：** React Navigation 在 Android 上默认使用 `TouchableNativeFeedback`，会产生涟漪效果。
+**原因：** React Navigation 在 Android 上默认使用 `PlatformPressable`，会产生涟漪效果。
 
-**修复方案：** 为每个 Tab 配置自定义的 `tabBarButton`，使用 `TouchableOpacity` 替代默认实现。
+**修复方案：** 为每个 Tab 配置自定义的 `tabBarButton`，使用 `PlatformPressable` 并设置 `android_ripple` 颜色为透明来禁用涟漪效果。
+注意：**不能用 `TouchableOpacity` 替代**，否则会导致 Tab 导航异常（点击任意 Tab 都跳回明细页）。
 
 **相关文件：**
 - `src/navigation/AppNavigator.tsx`
 
 **关键代码：**
 ```typescript
+import { PlatformPressable } from '@react-navigation/elements';
+
 tabBarButton: (props) => (
-  <TouchableOpacity {...props} activeOpacity={0.7} style={styles.tabBtn} />
+  <PlatformPressable {...props} android_ripple={{ color: 'transparent', borderless: false }} />
 ),
 ```
 

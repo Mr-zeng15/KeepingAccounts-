@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { PlatformPressable } from '@react-navigation/elements';
 
 import HomeScreen from '../screens/HomeScreen';
 import AddTransactionScreen from '../screens/AddTransactionScreen';
@@ -42,6 +43,9 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => (
+            <PlatformPressable {...props} android_ripple={{ color: 'transparent', borderless: false }} />
+          ),
         }}
       />
       <Tab.Screen
@@ -51,6 +55,9 @@ function HomeTabs() {
           tabBarLabel: '图表',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={22} color={color} />
+          ),
+          tabBarButton: (props) => (
+            <PlatformPressable {...props} android_ripple={{ color: 'transparent', borderless: false }} />
           ),
         }}
       />
@@ -83,6 +90,9 @@ function HomeTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'mic' : 'mic-outline'} size={22} color={color} />
           ),
+          tabBarButton: (props) => (
+            <PlatformPressable {...props} android_ripple={{ color: 'transparent', borderless: false }} />
+          ),
         }}
       />
       <Tab.Screen
@@ -92,6 +102,9 @@ function HomeTabs() {
           tabBarLabel: '我的',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+          ),
+          tabBarButton: (props) => (
+            <PlatformPressable {...props} android_ripple={{ color: 'transparent', borderless: false }} />
           ),
         }}
       />
