@@ -45,3 +45,13 @@ yarn-error.*
 apk_unpacked/
 apk_decoded_layouts/
 apk_icons/
+
+# scraping and data extraction
+scripts/
+import/
+shark_*
+*.xml
+*.log
+tools/
+*.jar
+*.zip
