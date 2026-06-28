@@ -208,11 +208,11 @@ export default function TransactionInputPanel({
             //   组成: opRow 38px + numArea 184px + 底部白底 insetsBottom = 222 + insetsBottom
             // 禁止修改：除非更新 PROJECT_NOTES.md 并记录原因
             // 参考文档：PROJECT_NOTES.md #3 虚拟按键遮挡记账菜单 + 键盘收起空白
+            // 背景色由 styles.keyboard 提供 = '#ECECEC'，禁止用 inline 覆盖为白色
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0, 222 + (insetsBottom || 0)],
             }),
-            backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0, 1],

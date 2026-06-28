@@ -62,6 +62,29 @@ export default function AddTransactionScreen() {
   const overlayAnim = useRef(new Animated.Value(0)).current;    // 0=遮罩隐藏, 1=遮罩可见
   const inputPanelAnim = useRef(new Animated.Value(0)).current; // 输入面板向上偏移动画
 
+  // ============================================================================
+  // 【分类网格滚动关键逻辑 — 禁止修改以下实现，否则会导致滑动失效】
+  //
+  // 1. scrollPaddingBottom 必须使用静态值（number），不能用 Animated.Value
+  //    原因：ScrollView 的 contentContainerStyle 中如果使用 Animated.Value，
+  //    React Native 无法正确计算内容高度，导致滚动失效。
+  //    参考项目 ref-project/book 也是用静态值实现滚动。
+  //
+  // 2. 必须使用 Animated.ScrollView（而非普通 ScrollView）
+  //    原因：外层 categoryGrid 使用了 Animated.View + opacity 动画，
+  //    内部 ScrollView 也需要是 Animated 组件才能正确协同。
+  //
+  // 3. 遮罩层 pointerEvents 条件：noteFocused && keyboardHeight === 0 ? 'auto' : 'none'
+  //    原因：备注聚焦时如果遮罩层 pointerEvents='auto'，会阻挡所有触摸事件穿透到
+  //    分类网格的 ScrollView，导致无法滚动。只在键盘未显示时才启用遮罩阻挡。
+  //
+  // 4. scrollPaddingBottom 值：
+  //    - 键盘隐藏时（备注聚焦）：150 + insetsBottom（inputPanelWrapper 约 130 + insets）
+  //    - 键盘展开时：380 + insetsBottom（inputPanelWrapper 约 352 + insets）
+  //    作用：让最底部分类能滚到 inputPanelWrapper 上方，不被遮挡。
+  // ============================================================================
+  const scrollPaddingBottom = noteFocused ? 150 + (insets.bottom || 0) : 380 + (insets.bottom || 0);
+
   // 记录键盘高度，用于备注聚焦时压缩分类网格；键盘收起后恢复自定义键盘
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -499,10 +522,13 @@ export default function AddTransactionScreen() {
           },
         ]}
       >
-        <ScrollView
+        {/* ⚠️ 必须用 Animated.ScrollView，不能用普通 ScrollView，否则滚动失效（见上方 scrollPaddingBottom 注释） */}
+        <Animated.ScrollView
           ref={categoryScrollRef}
-          contentContainerStyle={styles.gridContent}
+          style={{ flex: 1 }}
+          contentContainerStyle={[styles.gridContent, { paddingBottom: scrollPaddingBottom }]}
           showsVerticalScrollIndicator={false}
+          scrollEnabled={true}
         >
           {categories.map((cat, index) => {
             const active = cat.id === categoryId;
@@ -523,19 +549,20 @@ export default function AddTransactionScreen() {
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </Animated.ScrollView>
       </Animated.View>
 
       {/* 备注聚焦时的遮罩 — 使用动画淡入淡出，避免闪烁 */}
+      {/* ️ pointerEvents 条件不可改为 noteFocused ? 'auto' : 'none'，否则备注聚焦时遮罩会阻挡分类网格滚动 */}
       <Animated.View
-        style={[styles.noteOverlay, { opacity: overlayAnim, pointerEvents: noteFocused ? 'auto' : 'none' }]}
+        style={[styles.noteOverlay, { opacity: overlayAnim, pointerEvents: noteFocused && keyboardHeight === 0 ? 'auto' : 'none' }]}
       >
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismissNote} />
       </Animated.View>
 
-      {/* 记账输入面板 — 固定在底部，选中分类后才显示 */}
+      {/* 记账输入面板 — flex 布局底部 item，自然挤压分类网格 */}
       {categoryId && (
-        <Animated.View style={[styles.inputPanelWrapper, { transform: [{ translateY: inputPanelAnim }], paddingBottom: insets.bottom }]}>
+        <Animated.View style={[styles.inputPanelWrapper, { bottom: insets.bottom || 0, transform: [{ translateY: inputPanelAnim }] }]}>
           <TransactionInputPanel
             amount={amount}
             onAmountChange={setAmount}
@@ -615,21 +642,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 4,
-    paddingVertical: 8,
+    paddingVertical: 2,
   },
+  // 分类项 — 紧凑 padding 让 6 行分类可滚动且不被键盘遮挡
   gridItem: {
     width: '25%',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 2,
   },
   iconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 1,
   },
   iconCircleActive: { backgroundColor: COLORS.primary },
   catLabel: { fontSize: 11, color: COLORS.textSecondary },
@@ -647,10 +675,15 @@ const styles = StyleSheet.create({
   },
 
   // 输入面板包装器 — 固定在底部
+  // ⚠️ 关键代码锁（受 PROJECT_NOTES.md #3 保护 - Lock-1）
+  // 必须用 position: 'absolute'，不能改 flex 布局！
+  // 否则键盘面板高度变化时 categoryGrid 不会自动避让，会破坏其他布局
+  // 必须 backgroundColor: '#FFFFFF' 覆盖 Android 虚拟按键区
   inputPanelWrapper: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: '#FFFFFF',  // ⚠️ 关键
   },
 });
