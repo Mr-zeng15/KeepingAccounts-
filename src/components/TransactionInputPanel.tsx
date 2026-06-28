@@ -82,12 +82,14 @@ export default function TransactionInputPanel({
   keyboardHeight,
   insetsBottom,
 }: TransactionInputPanelProps) {
-  const windowHeight = Dimensions.get('window').height;
-  const maxHeight = windowHeight * 0.5;
+  // ⚠️ 关键代码锁（受 PROJECT_NOTES.md #3 保护 - Lock-1）
+  // 不要加 maxHeight 限制！否则在小屏设备上 keyboard 会被 overflow:hidden 裁掉
+  // 包括底部白色安全区 View，导致虚拟按键遮住键盘
+  // 让 container 高度由内容自然决定
   const noteInputRef = useRef<TextInput>(null);
 
   return (
-    <View style={[styles.container, { maxHeight }]}>
+    <View style={[styles.container]}>
       {/* 金额显示 + 备注/日期栏 */}
       <View style={styles.bottomSection}>
         {/* 金额 */}
@@ -202,12 +204,13 @@ export default function TransactionInputPanel({
           {
             // ⚠️ 关键代码锁（受 PROJECT_NOTES.md #3 保护 - Lock-1）
             // 收起状态高度 = 0（完全收起，不占位空间，避免大块空白）
-            // 展开状态高度 = 280 + insets.bottom（包含虚拟按键安全区）
+            // 展开状态高度 = 222 + insetsBottom（精确等于内容高度，无顶部空白）
+            //   组成: opRow 38px + numArea 184px + 底部白底 insetsBottom = 222 + insetsBottom
             // 禁止修改：除非更新 PROJECT_NOTES.md 并记录原因
             // 参考文档：PROJECT_NOTES.md #3 虚拟按键遮挡记账菜单 + 键盘收起空白
             height: keyboardAnim.interpolate({
               inputRange: [0, 1],
-              outputRange: [0, 280 + (insetsBottom || 0)],
+              outputRange: [0, 222 + (insetsBottom || 0)],
             }),
             backgroundColor: '#FFFFFF',
             opacity: keyboardAnim.interpolate({

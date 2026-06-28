@@ -78,35 +78,67 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 **问题描述：** 两个相关问题：
 1. 在有虚拟按键的 Android 设备上，记账页面展开键盘时底部菜单被虚拟按键遮挡
 2. 备注聚焦（键盘收起）时键盘区域下方留有大片空白
+3. 键盘顶部有 58px 空白浪费空间
 
 **根因：**
 1. 键盘区域高度计算没考虑 `insets.bottom`（安全区/虚拟按键）
 2. 键盘收起时仍保留 80px 占位高度，但内容被 `overflow:hidden` 裁掉，形成空白
+3. keyboard 高度硬编码 280，但内容实际只需要 222（opRow 38 + numArea 184），多出 58px 顶部空白
+4. `container.maxHeight = windowHeight * 0.5` + `container.overflow: hidden` 在小屏设备上把 keyboard 底部（包括底部白色安全区 View）裁掉，让虚拟按键遮住键盘
 
-**修复方案：** 在 [TransactionInputPanel.tsx](src/components/TransactionInputPanel.tsx#L208-L211) 中：
-1. 键盘收起状态高度 = **0px**（完全收起，不占位空间）
-2. 键盘展开状态高度 = `280 + insets.bottom`（包含安全区，避免被虚拟按键遮挡）
-3. 数字键盘容器底部添加 `<View style={{ height: insetsBottom || 0, backgroundColor: '#FFFFFF' }} />` 撑高虚拟按键区域为白底
-4. `keyboard: { backgroundColor: '#ECECEC', paddingBottom: 0 }` 不要在 keyboard 容器上设 padding
+**修复方案：** **三层防护 + 高度精确化**
+
+#### 第 1 层：`TransactionInputPanel.tsx` 内部
+- 键盘收起状态高度 = **0px**（完全收起，不占位空间）
+- 键盘展开状态高度 = **`222 + insetsBottom`**（精确等于内容总高）
+  - 组成：opRow 38px + numArea 184px + 底部白底 View (insetsBottom) = 222 + insetsBottom
+  - **无顶部 58px 空白浪费**
+- 数字键盘容器底部添加 `<View style={{ height: insetsBottom || 0, backgroundColor: '#FFFFFF' }} />` 撑高虚拟按键区域为白底
+- `keyboard: { backgroundColor: '#ECECEC', paddingBottom: 0 }` 不要在 keyboard 容器上设 padding
+
+#### 第 2 层：`TransactionInputPanel.tsx` 容器
+- **不要加 `maxHeight` 限制**（之前 `const maxHeight = windowHeight * 0.5` 是罪魁祸首，会让小屏设备 keyboard 被裁切）
+- 让 container 高度由内容自然决定
+- 保留 `container.overflow: hidden`（动画需要）
+
+#### 第 3 层：`AddTransactionScreen.tsx` 外层
+- `inputPanelWrapper` 必须有 `backgroundColor: '#FFFFFF'`
+- **移除 `paddingBottom: insets.bottom`**（让 wrapper 底边 = 屏幕底边 0，否则会暴露透明 paddingBottom 区域）
+- 整个 wrapper 区域都是白底，覆盖 Android 虚拟按键区
 
 **相关文件：**
-- [src/components/TransactionInputPanel.tsx:208-211](src/components/TransactionInputPanel.tsx#L208-L211) （高度计算）
-- [src/components/TransactionInputPanel.tsx:393](src/components/TransactionInputPanel.tsx#L393) （keyboard 样式）
-- [src/components/TransactionInputPanel.tsx:279](src/components/TransactionInputPanel.tsx#L279) （底部安全区 View）
+- [src/components/TransactionInputPanel.tsx:85-90](src/components/TransactionInputPanel.tsx#L85-L90) （⚠️ 不要加 maxHeight 锁标记）
+- [src/components/TransactionInputPanel.tsx:207-214](src/components/TransactionInputPanel.tsx#L207-L214) （outputRange 锁标记）
+- [src/components/TransactionInputPanel.tsx:280](src/components/TransactionInputPanel.tsx#L280) （底部安全区 View）
+- [src/components/TransactionInputPanel.tsx:394](src/components/TransactionInputPanel.tsx#L394) （keyboard 样式）
+- [src/screens/AddTransactionScreen.tsx:538](src/screens/AddTransactionScreen.tsx#L538) （不要 paddingBottom）
+- [src/screens/AddTransactionScreen.tsx:650-658](src/screens/AddTransactionScreen.tsx#L650-L658) （inputPanelWrapper 背景白）
 
 **关键代码：**
 ```typescript
-// 1. 键盘容器 - 收起 0px，展开 280 + insets.bottom
+// 1. container 不要加 maxHeight 限制
+<View style={[styles.container]}>
+  {/* 金额 + 备注 + keyboard */}
+</View>
+
+// 2. keyboard 高度 = 内容精确总高
 height: keyboardAnim.interpolate({
   inputRange: [0, 1],
-  outputRange: [0, 280 + (insetsBottom || 0)],  // ⚠️ 收起 = 0，不是 80
+  outputRange: [0, 222 + (insetsBottom || 0)],  // ⚠️ 精确值，222 = 38+184
 }),
 
-// 2. keyboard 样式 - 不要有 padding
+// 3. keyboard 底部白底 View
+<View style={{ height: insetsBottom || 0, backgroundColor: '#FFFFFF' }} />
+
+// 4. keyboard 样式
 keyboard: { backgroundColor: '#ECECEC', paddingBottom: 0 },
 
-// 3. 底部安全区 View - 撑高虚拟按键区域
-<View style={{ height: insetsBottom || 0, backgroundColor: '#FFFFFF' }} />
+// 5. 外层 wrapper 必须白底覆盖虚拟按键
+inputPanelWrapper: {
+  position: 'absolute',
+  left: 0, right: 0, bottom: 0,
+  backgroundColor: '#FFFFFF',  // ⚠️ 关键
+}
 ```
 
 **历史参考提交：**
@@ -114,7 +146,13 @@ keyboard: { backgroundColor: '#ECECEC', paddingBottom: 0 },
 - ❌ `5cc8754` - 改成 `[0, 280]`，完全没有占位（半成品，丢失了安全区适配）
 - ⚠️ `707de41` - 用 `[50+insets, 280+insets]`（收起+insets 是错的，insets 应该只用于展开）
 - ⚠️ `135280c` - 用 `[50, 280+insets]`（收起 50 会导致空白）
-- ✅ **当前方案** - 用 `[0, 280+insets]`，收起 0 + 展开含 insets，正确
+- ⚠️ 之前版本 - `container.maxHeight = windowHeight * 0.5` + `container.overflow: hidden` 在小屏设备上把 keyboard 底部裁掉
+- ⚠️ 之前版本 - keyboard 高度 280 + insets，顶部多 58px 空白浪费
+- ⚠️ 之前版本 - `inputPanelWrapper` 没有 backgroundColor + `paddingBottom: insets.bottom` 暴露透明区
+- ✅ **最终方案** - 三层防护 + 高度精确 222 + insets：
+  1. **container 不限高**，避免被 overflow:hidden 裁切
+  2. **keyboard 高度 222 + insets**，精确等于内容总高，底部白边 = insetsBottom
+  3. **inputPanelWrapper 背景白 + 不加 paddingBottom**，覆盖整个虚拟按键区
 
 ---
 
