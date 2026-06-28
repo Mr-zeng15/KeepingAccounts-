@@ -121,7 +121,6 @@ async function initDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
   if (bookCount && bookCount.count === 0) {
     await insertDefaultData(database);
   }
-
 }
 
 async function insertDefaultData(database: SQLite.SQLiteDatabase): Promise<void> {

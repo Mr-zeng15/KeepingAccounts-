@@ -223,7 +223,7 @@ function YearWheelPicker({ selectedYear, onSelect }: { selectedYear: number; onS
 
 function MiniDonut({ data, total }: { data: CategorySummary[]; total: number }) {
   let offset = 0;
-  const entries = data.slice(0, 5);
+  const entries = data;
 
   return (
     <View style={styles.donutWrap}>
@@ -528,7 +528,7 @@ export default function StatisticsScreen() {
           <View style={styles.donutSection}>
             <MiniDonut data={filteredCategories} total={total} />
             <View style={styles.legendList}>
-              {filteredCategories.slice(0, 5).map((cat, index) => (
+              {filteredCategories.map((cat, index) => (
                 <View key={`${cat.category_name}-${index}`} style={styles.legendRow}>
                   <View style={[styles.legendDot, { backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }]} />
                   <Text style={styles.legendName} numberOfLines={1}>{cat.category_name}</Text>
@@ -551,9 +551,11 @@ export default function StatisticsScreen() {
           {chart ? (
             <LineChart
               data={chart}
-              width={Math.max(260, chartWidth - 28)}
+              width={Math.max(220, chartWidth - 16)}
               height={190}
               yAxisLabel="¥"
+              yLabelsOffset={18}
+              xLabelsOffset={-6}
               chartConfig={{
                 backgroundColor: COLORS.surface,
                 backgroundGradientFrom: COLORS.surface,
@@ -561,6 +563,7 @@ export default function StatisticsScreen() {
                 decimalPlaces: 0,
                 color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                 labelColor: () => COLORS.textLight,
+                horizontalOffset: 0,
                 propsForDots: {
                   r: '3',
                   strokeWidth: '0',
@@ -572,7 +575,10 @@ export default function StatisticsScreen() {
                 },
               }}
               bezier
-              style={styles.chart}
+              style={[
+                styles.chart,
+                { paddingRight: 32, marginRight: 0, paddingLeft: 0, marginLeft: 0 },
+              ]}
               fromZero
             />
           ) : (
@@ -732,7 +738,7 @@ const styles = StyleSheet.create({
   legendPercent: { width: 48, textAlign: 'right', fontSize: 12, color: COLORS.text, fontWeight: '800' },
   navGroup: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   navBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center' },
-  chart: { borderRadius: 12, marginLeft: -10 },
+  chart: { borderRadius: 12, marginLeft: 0, alignSelf: 'center' },
   noDataChart: { height: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },
   noDataText: { fontSize: 13, color: COLORS.textLight, fontWeight: '700' },
   yearOverlay: { flex: 1, backgroundColor: 'rgba(58,46,31,0.35)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 88, paddingRight: 18 },

@@ -48,6 +48,7 @@ export const MASCOTS: Record<'home' | 'voice' | 'chart' | 'avatar', ImageSourceP
 export const CHART_COLORS = [
   '#FF6B6B', '#FFD447', '#79A8FF', '#73D5B6', '#FFB52E',
   '#B8A7FF', '#6BC77B', '#F7DC6F', '#FF9F1C', '#9AD9E8',
+  '#FF8FAB', '#8BD17C', '#FFA177', '#C5A3FF', '#5EC4D4', '#FFCDB2',
 ];
 
 export const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];

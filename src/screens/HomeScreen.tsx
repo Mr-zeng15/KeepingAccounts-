@@ -32,12 +32,14 @@ function getWeekday(d: string) { return WEEKDAYS[new Date(d).getDay()]; }
 function formatDateLabel(dateStr: string): string {
   const now = new Date();
   const d = new Date(dateStr);
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  if (dateStr === today) return '今天';
+  if (dateStr === today) return `今天 ${m}月${day}日`;
   const y = new Date(now); y.setDate(y.getDate() - 1);
   const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
-  if (dateStr === yesterday) return '昨天';
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  if (dateStr === yesterday) return `昨天 ${m}月${day}日`;
+  return `${m}月${day}日`;
 }
 
 export default function HomeScreen() {
@@ -55,6 +57,11 @@ export default function HomeScreen() {
   const [showAction, setShowAction] = useState(false);
   const [summaryHidden, setSummaryHidden] = useState(false);
   const monthListRef = useRef<ScrollView>(null);
+  // 记住明细列表的滚动位置（编辑/删除后恢复）
+  const listRef = useRef<SectionList<Transaction, DayGroup>>(null);
+  const savedScrollOffset = useRef(0);
+  const savedScrollSectionIndex = useRef(0);
+  const savedScrollItemIndex = useRef(0);
   const monthPickerItems = useMemo(() => {
     const items: { label: string; y: number; m: number }[] = [];
     const now = new Date();
@@ -129,8 +136,58 @@ export default function HomeScreen() {
     );
   }, [year, month]);
 
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData, year, month]));
+  useFocusEffect(
+    useCallback(() => {
+      // 记录进入前的滚动位置（在数据变化前）
+      const willReload = savedScrollOffset.current > 0 || savedScrollSectionIndex.current > 0;
+      loadData().then(() => {
+        if (willReload) {
+          // 延迟 2 帧确保 SectionList 已渲染
+          setTimeout(() => {
+            try {
+              if (savedScrollOffset.current > 0) {
+                listRef.current?.getScrollResponder()?.scrollTo?.({
+                  y: savedScrollOffset.current,
+                  animated: false,
+                });
+              } else if (savedScrollSectionIndex.current >= 0) {
+                listRef.current?.scrollToLocation({
+                  sectionIndex: savedScrollSectionIndex.current,
+                  itemIndex: savedScrollItemIndex.current,
+                  viewPosition: 0,
+                  animated: false,
+                });
+              }
+            } catch (e) {
+              // 静默失败，不影响用户
+            }
+          }, 100);
+        }
+      });
+    }, [loadData, year, month])
+  );
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
+
+  // 记录滚动位置（用于编辑/删除后恢复）
+  const onListScroll = (e: any) => {
+    savedScrollOffset.current = e.nativeEvent.contentOffset.y;
+  };
+  const onListScrollEndDrag = (e: any) => {
+    savedScrollOffset.current = e.nativeEvent.contentOffset.y;
+  };
+  const onListMomentumScrollEnd = (e: any) => {
+    savedScrollOffset.current = e.nativeEvent.contentOffset.y;
+  };
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    // 记录当前第一个可见 item，用于恢复
+    if (viewableItems && viewableItems.length > 0) {
+      const first = viewableItems[0];
+      if (first && first.section != null) {
+        savedScrollSectionIndex.current = first.section;
+        savedScrollItemIndex.current = first.index ?? 0;
+      }
+    }
+  }).current;
 
   const handleLongPress = (tx: Transaction) => {
     setSelectedTx(tx);
@@ -146,10 +203,18 @@ export default function HomeScreen() {
   const handleDelete = () => {
     if (!selectedTx) return;
     showThemedConfirm('确认删除', '确定要删除这条记录吗？', async () => {
+      // 删除前先记住当前滚动位置
+      const offset = savedScrollOffset.current;
       await TransactionRepo.delete(selectedTx.id);
       setShowAction(false);
       setSelectedTx(null);
-      loadData();
+      await loadData();
+      // 删除后恢复滚动位置
+      setTimeout(() => {
+        try {
+          listRef.current?.getScrollResponder()?.scrollTo?.({ y: offset, animated: false });
+        } catch (e) { }
+      }, 100);
     }, '删除');
   };
 
@@ -235,9 +300,15 @@ export default function HomeScreen() {
       </View>
 
       <SectionList
+        ref={listRef}
         style={{ flex: 1 }}
         sections={sections}
         keyExtractor={(item) => String(item.id)}
+        onScroll={onListScroll}
+        onScrollEndDrag={onListScrollEndDrag}
+        onMomentumScrollEnd={onListMomentumScrollEnd}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
         renderSectionHeader={({ section }) => (
           <View style={styles.dayHeader}>
             <View style={styles.dayLeft}>
@@ -428,15 +499,15 @@ const styles = StyleSheet.create({
   funcBar: {
     flexDirection: 'row',
     marginHorizontal: 16,
-    marginTop: 10,
-    paddingVertical: 10,
+    marginTop: 8,
+    paddingVertical: 4,
     paddingHorizontal: 2,
   },
   funcItem: { flex: 1, alignItems: 'center' },
   funcIconBg: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: '#FFF6DA',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 7,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 4,
     borderWidth: 1,
     borderColor: COLORS.divider,
   },

@@ -332,10 +332,11 @@ export default function AddTransactionScreen() {
       const bookId = books.length > 0 ? books[0].id : 1;
       if (editId) {
         await TransactionRepo.update(editId, { category_id: categoryId, amount: num, type, note, date });
+        // 编辑后直接返回，让 HomeScreen 通过 useFocusEffect 刷新（保持滚动位置）
+        navigation.goBack();
       } else {
         await TransactionRepo.create({ book_id: bookId, category_id: categoryId, amount: num, type, note, date });
       }
-      navigation.goBack();
     } catch (e: any) {
       showThemedAlert('保存失败', String(e?.message || e));
     }
@@ -398,15 +399,16 @@ export default function AddTransactionScreen() {
 
       if (editId) {
         await TransactionRepo.update(editId, { category_id: categoryId, amount: num, type, note, date });
+        // 编辑后直接返回，让 HomeScreen 通过 useFocusEffect 刷新（保持滚动位置）
+        navigation.goBack();
       } else {
         await TransactionRepo.create({ book_id: bookId, category_id: categoryId, amount: num, type, note, date });
+        // 新建后通过 reset 跳到 Home（因为输入页不复用）
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs', params: { screen: 'Home' } }],
+        });
       }
-
-      // 导航到明细页
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MainTabs', params: { screen: 'Home' } }],
-      });
     } catch (e: any) {
       showThemedAlert('保存失败', String(e?.message || e));
     }
