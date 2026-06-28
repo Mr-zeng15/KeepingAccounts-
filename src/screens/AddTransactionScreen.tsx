@@ -136,18 +136,30 @@ export default function AddTransactionScreen() {
   useEffect(() => {
     if (!transactionLoaded) return;
     loadCategories();
-    loadFrequentNotes();
   }, [type, transactionLoaded]);
 
-  const loadFrequentNotes = async () => {
+  // 使用 ref 跟踪最新 categoryId，避免 useEffect 闭包陷阱
+  const categoryIdRef = useRef<number | null>(categoryId);
+  useEffect(() => {
+    categoryIdRef.current = categoryId;
+  }, [categoryId]);
+
+  // 加载常用标签（基于 ref 获取最新 categoryId）
+  const loadFrequentNotes = useCallback(async () => {
     try {
-      const notes = await TransactionRepo.getFrequentNotes(10, categoryId || undefined);
+      const notes = await TransactionRepo.getFrequentNotes(10, categoryIdRef.current || undefined);
       setFrequentNotes(notes);
     } catch (e) {
       console.warn('加载常用备注失败:', e);
       setFrequentNotes([]);
     }
-  };
+  }, []);
+
+  // 分类切换时重新加载常用标签（每个分类的标签独立）
+  useEffect(() => {
+    if (!transactionLoaded) return;
+    loadFrequentNotes();
+  }, [categoryId, transactionLoaded]);
 
   const loadCategories = async () => {
     try {
