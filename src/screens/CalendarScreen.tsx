@@ -280,18 +280,32 @@ export default function CalendarScreen() {
         {selectedDate && (
           <View style={styles.detailSection}>
             <View style={styles.detailHeader}>
-              <Text style={styles.detailDate}>{selectedDate} {getWeekday(selectedDate)}</Text>
+              <View style={styles.dayLeft}>
+                <Text style={styles.detailDate}>{selectedDate}</Text>
+                <Text style={styles.detailWeekday}>{getWeekday(selectedDate)}</Text>
+              </View>
               <View style={styles.detailSummary}>
-                <Text style={styles.detailIncome}>收入: {formatAmount(selectedDaySummary.income)}</Text>
-                <Text style={styles.detailExpense}>支出: {formatAmount(selectedDaySummary.expense)}</Text>
+                {selectedDaySummary.expense > 0 && (
+                  <Text style={styles.detailExpense}>支 ¥{formatAmount(selectedDaySummary.expense)}</Text>
+                )}
+                {selectedDaySummary.income > 0 && (
+                  <Text style={styles.detailIncome}>收 ¥{formatAmount(selectedDaySummary.income)}</Text>
+                )}
               </View>
             </View>
 
             {selectedDayTransactions.length > 0 ? (
-              selectedDayTransactions.map((item) => (
-                <View key={String(item.id)} style={styles.transactionItem}>
+              selectedDayTransactions.map((item, index) => (
+                <View
+                  key={String(item.id)}
+                  style={[
+                    styles.transactionItem,
+                    index === 0 && styles.txItemFirst,
+                    index === selectedDayTransactions.length - 1 && styles.txItemLast,
+                  ]}
+                >
                   <View style={styles.txIconBg}>
-                    <CategoryIcon categoryName={item.category_name || ''} iconKey={item.category_icon} size={20} color="#555" />
+                    <CategoryIcon categoryName={item.category_name || ''} iconKey={item.category_icon} size={17} color="#555" />
                   </View>
                   <View style={styles.txInfo}>
                     <Text style={styles.txName}>{item.category_name || '未分类'}</Text>
@@ -416,44 +430,56 @@ const styles = StyleSheet.create({
   },
   detailSection: { backgroundColor: COLORS.background, marginTop: 8, paddingBottom: 16 },
   detailHeader: {
-    backgroundColor: COLORS.surface,
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    ...SHADOWS.card,
-    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: COLORS.background,
   },
-  detailDate: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
-  detailSummary: { flexDirection: 'row', justifyContent: 'space-between' },
-  detailIncome: { fontSize: 13, color: COLORS.income, fontWeight: '500' },
-  detailExpense: { fontSize: 13, color: COLORS.expense, fontWeight: '500' },
-  transactionList: { paddingHorizontal: 16, paddingTop: 8 },
+  dayLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  detailDate: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  detailWeekday: { fontSize: 12, color: COLORS.textLight },
+  detailSummary: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  detailIncome: { fontSize: 11, color: COLORS.textLight },
+  detailExpense: { fontSize: 11, color: COLORS.textLight },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
+    marginHorizontal: 16,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.divider,
   },
+  txItemFirst: {
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  txItemLast: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    marginBottom: 8,
+  },
   txIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#FFF3D0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   txInfo: { flex: 1 },
-  txName: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
-  txNote: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  txAmount: { fontSize: 15, fontWeight: '600' },
+  txName: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
+  txNote: { fontSize: 11, color: COLORS.textLight },
+  txAmount: { fontSize: 14, fontWeight: '600' },
   income: { color: COLORS.income },
   expense: { color: COLORS.expense },
-  empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
+  empty: { alignItems: 'center', paddingVertical: 70, gap: 8 },
   emptyText: { fontSize: 15, color: COLORS.textSecondary },
   monthOverlay: {
     flex: 1,
