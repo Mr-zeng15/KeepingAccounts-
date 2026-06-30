@@ -128,6 +128,17 @@ export default function BudgetScreen() {
     loadData();
   };
 
+  const handleCategoryBudgetDelete = async (categoryId: number) => {
+    const confirmed = await showThemedConfirm('删除分类预算', '确定要删除这个分类的预算设置吗？');
+    if (!confirmed) return;
+
+    const books = await AccountBookRepo.getAll();
+    if (!books.length) return;
+
+    await BudgetRepo.deleteCategoryBudget(books[0].id, categoryId, year, month);
+    loadData();
+  };
+
   const getCategorySpent = (categoryId: number) => {
     return categorySpending.find((item) => item.category_id === categoryId)?.total ?? 0;
   };
@@ -230,10 +241,11 @@ export default function BudgetScreen() {
                 key={item.id}
                 style={styles.categoryBudgetRow}
                 onPress={() => openCategoryPopup(item.category_id, item.amount)}
+                onLongPress={() => handleCategoryBudgetDelete(item.category_id)}
                 activeOpacity={0.75}
               >
-                <View style={styles.rankIcon}>
-                  <CategoryIcon categoryName={item.category_name} iconKey={item.category_icon} size={20} color={COLORS.text} />
+                <View style={styles.rankIconBg}>
+                  <CategoryIcon categoryName={item.category_name} iconKey={item.category_icon} size={18} color={COLORS.text} />
                 </View>
                 <View style={styles.rankInfo}>
                   <View style={styles.rankNameRow}>
@@ -268,8 +280,8 @@ export default function BudgetScreen() {
               const percent = budgetAmount > 0 ? (cat.total / budgetAmount) * 100 : 0;
               return (
                 <View key={cat.name} style={styles.rankRow}>
-                  <View style={styles.rankIcon}>
-                    <CategoryIcon categoryName={cat.name} iconKey={cat.icon} size={20} color={COLORS.text} />
+                  <View style={styles.rankIconBg}>
+                    <CategoryIcon categoryName={cat.name} iconKey={cat.icon} size={18} color={COLORS.text} />
                   </View>
                   <View style={styles.rankInfo}>
                     <View style={styles.rankNameRow}>
@@ -546,7 +558,15 @@ const styles = StyleSheet.create({
   },
   rankTitle: { fontSize: 15, fontWeight: '600', color: COLORS.text, marginBottom: 16 },
   rankRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  rankIcon: { width: 30, alignItems: 'center', marginHorizontal: 8 },
+  rankIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFF3D0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
   rankInfo: { flex: 1 },
   rankNameRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   rankName: { fontSize: 14, color: COLORS.text },
