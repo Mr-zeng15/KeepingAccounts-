@@ -116,7 +116,7 @@ export default function CategoryDetailScreen() {
             <Text style={styles.emptyText}>暂无数据</Text>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.rankList}>
               {noteRanks.map((item, index) => (
                 <View key={item.note} style={[styles.rankItem, index === noteRanks.length - 1 && styles.rankItemLast]}>
@@ -205,6 +205,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: COLORS.textLight,
+  },
+  scrollContent: {
+    backgroundColor: COLORS.background,
   },
   rankList: {
     backgroundColor: COLORS.surface,
